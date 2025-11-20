@@ -129,7 +129,7 @@ Critères :
 - date de fin dépassée
 
 (Capture dashboard.php)  
-![Dashboard](images/dashboard.png)
+![Dashboard](images/dashboard.PNG)
 
 ---
 
@@ -141,7 +141,7 @@ Critères :
   ✔ Un bouton “menu” l’affiche au clic  
 
 (Capture écran version mobile)  
-![Mobile view](images/mobile.png)
+![Mobile view](images/mobile.PNG)
 
 ---
 ## Architecture du projet
