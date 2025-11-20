@@ -1,0 +1,20 @@
+<!-- Navbar -->
+    <nav>
+        <div class="container-fluid bg-light">
+            <div class="d-flex justify-content-between">
+                <div class="d-flex border mt-1 mb-1 justify-content-center rounded-2 pt-2"style="background-color : white; width:7%; height : 37px;">
+                    <i class="fas fa-chart-line me-2"></i>
+                    <p><strong>SISAG</strong></p>
+                </div>
+                <div class="mt-1 mb-1 d-flex"style="height : 37px;">
+                    <div> 
+                        <button class="btn btn-outline-dark border rounded-2 ps-2 pe-2 pt-2" typ="submit" style="background-color : white; width:100%; height : 37px;"><i class="fas fa-chart-line"></i></button>
+                    </div>
+                    <div class="d-flex ms-2"> 
+                        <input class="border rounded-2" style="width:100%;" type="search" id="searchInput" placeholder="Rechercher">
+                        <button class="btn btn-outline-dark border rounded-2 ps-2 pe-2 pt-2" typ="submit" style="background-color : white; width:15%; height : 37px;"><i class="fas fa-chart-line"></i></button>
+                    </div>
+                </div>
+            </div>  
+        </div>
+    </nav>
