@@ -30,7 +30,7 @@ Une page d'accueil moderne, responsive et intuitive présentant un aperçu globa
 
 *Capture d’écran :*  
 
-![Page accueil](images/accueil.png)
+![Page accueil](images/accueil.PNG)
 
 ---
 
@@ -48,7 +48,7 @@ L’avancement (progression) :
 - Si projet terminé : *100% automatiquement*
 
 (Capture de la page ajouter_projet.php)  
-![Ajouter projet](images/ajouter_projet.png)
+![Ajouter projet](images/ajouter_projet.PNG)
 
 ---
 
@@ -68,7 +68,7 @@ Règles de sécurité :
 - Si on met *terminé, l’avancement devient automatiquement **100%*
 
 (Capture page update.php)  
-![Update projet](images/update.png)
+![Update projet](images/update.PNG)
 
 ---
 
@@ -80,7 +80,7 @@ Dans liste_projet_admin.php :
   ✔ Statut change automatiquement en *en retard*  
 
 (Capture tableau des projets — admin)  
-![Liste projets admin](images/liste_admin.png)
+![Liste projets admin](images/liste_admin.PNG)
 
 ---
 
@@ -92,7 +92,7 @@ Alerte automatique :
 - Si la date du début ≤ aujourd’hui → suggère à admin de mettre le statut à jour.
 
 (Capture projet_avenir.php)  
-![Projets à venir](images/projets_avenir.png)
+![Projets à venir](images/projets_avenir.PNG)
 
 ---
 
@@ -103,7 +103,7 @@ Un projet est critique si :
 - ou s’il dépasse sa date de fin
 
 (Capture projet_critique.php)  
-![Projets critiques](images/projets_critique.png)
+![Projets critiques](images/projets_critique.PNG)
 
 ---
 ### *Gestion commentaire*
