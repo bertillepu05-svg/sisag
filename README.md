@@ -72,13 +72,12 @@ Règles de sécurité :
 
 ---
 
-### *Alertes sur les projets non mis à jour*
+### *Changement automatique de statut*
 
 Dans liste_projet_admin.php :
 
 - Si un projet est *en cours*, mais la date de fin ≤ aujourd’hui :
   ✔ Statut change automatiquement en *en retard*  
-  ✔ Affichage d’un message d’alerte à l’administrateur
 
 (Capture tableau des projets — admin)  
 ![Liste projets admin](images/liste_admin.png)
@@ -119,12 +118,12 @@ Recupère les infos de celui qui commente et a la possibilité de :
 
 Le tableau de bord affiche automatiquement :
 
-#### ⭐ Top 3 projets les plus avancés
+#### Top 3 projets les plus avancés
 Critères :
 - avancement le plus élevé
 - date de fin encore valide
 
-#### ❗ Top 3 projets critiques
+#### Top 3 projets critiques
 Critères :
 - statut *en retard*
 - date de fin dépassée
@@ -145,5 +144,24 @@ Critères :
 ![Mobile view](images/mobile.png)
 
 ---
-
+## Architecture du projet
+sisag/ 
+│── 📁 admin/               # Interface d'administration
+│     ├── ajouter_projet.php       # Formulaire d'ajout de projets
+│     ├── update.php               # Mise à jour des projets
+│     ├── dashboard_admin.php            # Tableau de bord général
+│     ├── liste_projet_admin.php   # Liste
+│     └── ...                      # Autres pages admin
+│
+│── 📁 citoyen/             # Interface publique (citoyens)
+│     ├── dashboard.php        
+│     ├── liste_projet.php     
+│     └── ...                      # Autres pages publiques
+│
+│── 🖼 photos/              # Images utilisées dans l'application
+│     └── (assets du projet)
+│          
+│── images/                 #captures de l'application 
+│── 📘 README.md            # Documentation du projet
+#
 ## 📂 Architecture du projet
