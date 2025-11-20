@@ -112,7 +112,7 @@ Recupère les infos de celui qui commente et a la possibilité de :
 - ou l'approuvé
 - 
   (Capture commentaire.php)  
-![Projets critiques](images/commentaire.png)
+![Projets critiques](images/commentaire.PNG)
 
 ### *Dashboard avancé*
 
