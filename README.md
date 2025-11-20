@@ -163,5 +163,3 @@ sisag/
 │          
 │── images/                 #captures de l'application 
 │── 📘 README.md            # Documentation du projet
-#
-## 📂 Architecture du projet
