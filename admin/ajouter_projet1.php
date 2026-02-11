@@ -31,6 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['ajout'])) {
     $budget = $_POST['budget'];
     $date_debut = $_POST['date_debut'];
     $date_fin = $_POST['date_fin'];
+    $photo = $_POST['date_fin'];
     $descript = $_POST['descript'];
     $objectif = $_POST['objectif'];
     $id_adm = $_SESSION['id_adm'];
@@ -53,9 +54,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['ajout'])) {
     }
     
     try {
+        // Gestion de la photo 
+        if (!empty($_FILES['photo']['name'])) {
+            $extension = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
+            $nouveau_nom = "photo_" .time(). "." . $extension;
+            $destination = "../photos/projet/" . $nouveau_nom;
+            move_uploaded_file($_FILES['photo']['tmp_name'], $destination);
+        }
         // Insertion dans la base de données
-        $sql = "INSERT INTO projet (nom_projet, commune, quartier, ministere, budget, date_debut, date_fin, descript, objectif, statut, avancement, id_adm) 
-                VALUES (:nom_projet, :commune, :quartier, :ministere, :budget, :date_debut, :date_fin, :descript, :objectif, :statut, :avancement, :id_adm)";
+        $sql = "INSERT INTO projet (nom_projet, commune, quartier, ministere, budget, date_debut, date_fin, descript, objectif, statut, avancement, photo, id_adm) 
+                VALUES (:nom_projet, :commune, :quartier, :ministere, :budget, :date_debut, :date_fin, :descript, :objectif, :statut, :avancement, :photo, :id_adm)";
         
         $stmt = $conn->prepare($sql);
         $stmt->bindParam(':nom_projet', $nom_projet);
@@ -69,10 +77,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['ajout'])) {
         $stmt->bindParam(':objectif', $objectif);
         $stmt->bindParam(':statut', $statut);
         $stmt->bindParam(':avancement', $avancement);
+        $stmt->bindParam(':photo', $destination);
+
         $stmt->bindParam(':id_adm', $id_adm);
         
         if ($stmt->execute()) {
             $_SESSION['success_message'] = "Projet ajouté avec succès! Statut automatique: <strong>$statut</strong>";
+            
         } else {
             $_SESSION['error_message'] = "Erreur lors de l'ajout du projet";
         }

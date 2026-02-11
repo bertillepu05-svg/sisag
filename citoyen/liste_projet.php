@@ -1,4 +1,9 @@
 <?php
+header('Content-Type: text/html; charset=utf-8');
+
+
+//inclure le fichier de verification 
+require_once 'check_session.php';
 
 
 // Connexion à la base de données
@@ -113,6 +118,23 @@ if (isset($_GET['supprimer'])) {
 
     $_SESSION['success_message'] = 'Projet supprimé avec succès';
 }
+
+// Récupérer les projets suivis par l'utilisateur
+$sql_suivis = "SELECT * FROM projets_suivis WHERE id_citoyen = ? ORDER BY date_suivi DESC";
+$stmt_suivis = $conn->prepare($sql_suivis);
+$stmt_suivis->bind_param("i", $id_citoyen);
+$stmt_suivis->execute();
+$result_suivis = $stmt_suivis->get_result();
+
+$suivi = $result_suivis->num_rows;
+
+// Récupérer les infos 
+$sql = "SELECT * FROM citoyen WHERE id_citoyen = ?"; 
+$stmt = $conn->prepare($sql); 
+$stmt->bind_param("i", $id_citoyen); 
+$stmt->execute(); $result = $stmt->get_result(); 
+$citoyen = $result->fetch_assoc(); 
+
                             
 ?>
 <!DOCTYPE html>
@@ -201,7 +223,18 @@ if (isset($_GET['supprimer'])) {
             opacity: 1;
         }
         h3{
-            font-family: 'Times New Roman', Times, serif;
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
+        }
+        .admin{
+            height :30px;
+            width : 30px;
+            background-color : white;
+            font-size : 20px;
+        }
+        .admin a{
+            color : black;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -295,19 +328,36 @@ if (isset($_GET['supprimer'])) {
                 font-size: 0.875rem;
             }
         }
+        .photo {
+        height: 250px;
+        object-fit: cover;
+        width: 90%;
+        border-bottom: 3px solid var(--light);
+        }
+        .photo {
+            transition: transform 0.2s;
+        }
 
+        .photo:hover {
+            transform: scale(1.05);
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <div class="row">
              <!-- Sidebar -->
-             <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
+            <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
                 <div class="d-flex p-3 icone">
                     <i class="fas fa-chart-line me-2"></i>SISAG
                 </div>
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="accueil.php" data-page="dashboard">
+                                <i class="fas fa-house"></i> Accueil
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="dashboard.php" data-page="dashboard">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
@@ -318,11 +368,25 @@ if (isset($_GET['supprimer'])) {
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
+                        <?php if (!isset($_SESSION['id_citoyen'])): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="login.php">
+                                    <i class="fas fa-sign-in-alt"></i> Se connecter
+                                </a>
+                            </li>
+                        <?php endif; ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" data-page="projects">
-                                <i class="fas fa-list"></i> Mes projets suivis
+                            <a class="nav-link" href="mes_projets_suivis.php" data-page="suivis">
+                                <i class="fas fa-bookmark"></i> Mes projets suivis
                             </a>
                         </li>
+                        <?php if (isset($_SESSION['id_citoyen'])): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="deconnexion_citoyen.php">
+                                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     </ul>
                 </div>
             </div>
@@ -374,15 +438,16 @@ if (isset($_GET['supprimer'])) {
                     </div>
                     <?php unset($_SESSION['warning_message']); ?>
                 <?php endif; ?>
+
                 <!-- En tête -->
                 <div class="d-flex justify-content-between">
                     <div>
                         <h3>Liste des projets</h3>
                     </div>
                     <div class="d-flex align-items-center">
-                        <span class="navbar-text" style="font-size : 20px;">
-                        <a href="../admin/login.php"><i class="bi bi-person-gear"></i> </a>admin
-                        </span>
+                        <div class="admin rounded-2">
+                            <a href="../admin/login.php"><i class="bi bi-person-gear ms-1"></i> </a>
+                        </div>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-warning text-white ms-2 dropdown-toggle" 
                                     type="button" id="dropdownExport" 
@@ -397,6 +462,11 @@ if (isset($_GET['supprimer'])) {
                                     <i class="fas fa-file-excel me-2"></i>Export Excel
                                 </a></li>
                             </ul>
+                        </div>
+                        <div class="nom ms-2">
+                            <?php if ($citoyen): ?>
+                                <?php echo $citoyen['nom'] ?? 'Utilisateur'; ?> <?php echo $citoyen['prenom']  ?? 'Utilisateur'; ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -496,6 +566,17 @@ if (isset($_GET['supprimer'])) {
                         <div class="card-body">
                             <div class="map-container">
                                 <p class="text-muted">Carte interactive des communes de la province de Kinshasa</p>
+                                <div class="row ">
+                                    <div class="col-4">
+                                        <img src="../photos/projet/kinshasa-map.jpg" alt="" width="auto" class="photo">
+                                    </div>
+                                    <div class="col-4">
+                                        <img src="../photos/projet/carte-kinshasa.jpg" alt="" width="auto" class="photo">
+                                    </div>
+                                    <div class="col-4">
+                                        <img src="../photos/projet/img2" alt="" width="auto" class="photo">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -584,9 +665,9 @@ if (isset($_GET['supprimer'])) {
                                             echo "<td>
                                                     <div class='d-flex'>
                                                         <a href='detail_projet.php?id=".$ligne['id_projet']."' class='btn btn-sm btn-outline-primary view-project btn-sm ms-1'>
-                                                            <i class='fas fa-eye'></i> 
-                                                        </a>
-                                                        <a href='#' class='btn btn-sm btn-danger view-project btn-sm ms-1'>
+                                                            <i class='fas fa-eye'></i>
+                                                        </a>   
+                                                        <a href='ajouter.php?id=".$ligne['id_projet']."' class='btn btn-sm btn-danger view-project btn-sm ms-1'>
                                                             <i class='bi bi-plus'></i> 
                                                         </a>
                                                     </div>
@@ -676,7 +757,7 @@ if (isset($_GET['supprimer'])) {
     </div>
 
 
-    <script>
+<script>
     // Fonction pour fermer les alertes
     function closeAlert(button) {
         const alert = button.closest('.alert');
@@ -687,300 +768,320 @@ if (isset($_GET['supprimer'])) {
         }, 300);
     }
 
-// Auto-fermeture des alertes après 8 secondes
-setTimeout(function() {
-    const alerts = document.querySelectorAll('.alert');
-    alerts.forEach(alert => {
-        alert.style.opacity = '0';
-        alert.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => {
-            alert.remove();
-        }, 300);
+    // Auto-fermeture des alertes après 8 secondes
+    setTimeout(function() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            alert.style.opacity = '0';
+            alert.style.transition = 'opacity 0.3s ease';
+            setTimeout(() => {
+                alert.remove();
+            }, 300);
+        });
+    }, 8000);
+
+    // Filtrer automatiquement quand les sélecteurs changent
+    document.addEventListener('DOMContentLoaded', function() {
+        const communeFilter = document.getElementById('communeFilter');
+        const statusFilter = document.getElementById('statusFilter');
+        const ministereFilter = document.getElementById('ministereFilter');
+        
+        function applyFilters() {
+            const params = new URLSearchParams(window.location.search);
+            
+            if (communeFilter.value) params.set('commune', communeFilter.value);
+            else params.delete('commune');
+            
+            if (statusFilter.value) params.set('statut', statusFilter.value);
+            else params.delete('statut');
+            
+            if (ministereFilter.value) params.set('ministere', ministereFilter.value);
+            else params.delete('ministere');
+            
+            // Retour à la page 1 quand on change de filtre
+            params.set('page', '1');
+            
+            window.location.href = 'liste_projet.php?' + params.toString();
+        }
+        
+        communeFilter.addEventListener('change', applyFilters);
+        statusFilter.addEventListener('change', applyFilters);
+        ministereFilter.addEventListener('change', applyFilters);
     });
-}, 8000);
 
-// Filtrer automatiquement quand les sélecteurs changent
-document.addEventListener('DOMContentLoaded', function() {
-    const communeFilter = document.getElementById('communeFilter');
-    const statusFilter = document.getElementById('statusFilter');
-    const ministereFilter = document.getElementById('ministereFilter');
-    
-    function applyFilters() {
-        const params = new URLSearchParams(window.location.search);
-        
-        if (communeFilter.value) params.set('commune', communeFilter.value);
-        else params.delete('commune');
-        
-        if (statusFilter.value) params.set('statut', statusFilter.value);
-        else params.delete('statut');
-        
-        if (ministereFilter.value) params.set('ministere', ministereFilter.value);
-        else params.delete('ministere');
-        
-        // Retour à la page 1 quand on change de filtre
-        params.set('page', '1');
-        
-        window.location.href = 'liste_projet_admin.php?' + params.toString();
-    }
-    
-    communeFilter.addEventListener('change', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
-    ministereFilter.addEventListener('change', applyFilters);
-});
-
-// Fonction pour exporter en PDF
+    // Fonction pour exporter en PDF (TOUTES les données)
 function exporterPDF() {
-    const btn = event.target.closest('.dropdown-item');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
-    
-    try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('p', 'mm', 'a4');
-        
-        // Titre du document
-        const dateExport = new Date().toLocaleDateString('fr-FR');
-        const totalProjets = <?php echo $total; ?>;
-        
-        // En-tête
-        doc.setFontSize(16);
-        doc.setTextColor(40, 40, 40);
-        doc.text('LISTE DES PROJETS - SISAG', 105, 15, { align: 'center' });
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Export du ${dateExport} - ${totalProjets} projet(s) trouvé(s)`, 105, 22, { align: 'center' });
-        
-        // Informations sur les filtres
-        let filtresText = 'Filtres appliqués: ';
-        const filtres = [];
-        
-        <?php if (!empty($commune_filter)): ?>
-            filtres.push('Commune: <?php echo $commune_filter; ?>');
-        <?php endif; ?>
-        
-        <?php if (!empty($statut_filter)): ?>
-            filtres.push('Statut: <?php echo $statut_filter; ?>');
-        <?php endif; ?>
-        
-        <?php if (!empty($ministere_filter)): ?>
-            filtres.push('Ministère: <?php echo $ministere_filter; ?>');
-        <?php endif; ?>
-        
-        <?php if (!empty($recherche_filter)): ?>
-            filtres.push('Recherche: <?php echo $recherche_filter; ?>');
-        <?php endif; ?>
-        
-        if (filtres.length === 0) {
-            filtresText = 'Aucun filtre appliqué';
-        } else {
-            filtresText += filtres.join(', ');
-        }
-        
-        doc.text(filtresText, 14, 32);
-        
-        // Préparer les données du tableau
-        const headers = [
-            'ID', 
-            'Nom Projet', 
-            'Commune', 
-            'Quartier', 
-            'Ministère', 
-            'Statut', 
-            'Budget ($)', 
-            'Date Début', 
-            'Date Fin', 
-            'Avancement'
-        ];
-        
-        const data = [];
-        
-        // Récupérer les données du tableau HTML
-        const rows = document.querySelectorAll('#regionProjectsTable tbody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length > 0) {
-                const rowData = [
-                    cells[0].textContent.trim(),
-                    cells[1].textContent.trim(),
-                    cells[2].textContent.trim(),
-                    cells[3].textContent.trim(),
-                    cells[4].textContent.trim(),
-                    cells[5].textContent.trim(),
-                    cells[6].textContent.trim(),
-                    cells[7].textContent.trim(),
-                    cells[8].textContent.trim(),
-                    cells[9].textContent.trim()
-                ];
-                data.push(rowData);
-            }
-        });
-        
-        // Créer le tableau avec autoTable
-        doc.autoTable({
-            startY: 40,
-            head: [headers],
-            body: data,
-            theme: 'grid',
-            styles: {
-                fontSize: 8,
-                cellPadding: 2,
-                overflow: 'linebreak'
-            },
-            headStyles: {
-                fillColor: [13, 110, 253],
-                textColor: 255,
-                fontStyle: 'bold'
-            },
-            alternateRowStyles: {
-                fillColor: [240, 240, 240]
-            },
-            columnStyles: {
-                0: { cellWidth: 15 }, // ID
-                1: { cellWidth: 30 }, // Nom Projet
-                2: { cellWidth: 25 }, // Commune
-                3: { cellWidth: 25 }, // Quartier
-                4: { cellWidth: 25 }, // Ministère
-                5: { cellWidth: 20 }, // Statut
-                6: { cellWidth: 25 }, // Budget
-                7: { cellWidth: 20 }, // Date Début
-                8: { cellWidth: 20 }, // Date Fin
-                9: { cellWidth: 20 }  // Avancement
-            },
-            margin: { top: 40 }
-        });
-        
-        // Pied de page
-        const pageCount = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Page ${i} / ${pageCount} - SISAG - ${dateExport}`, 105, doc.internal.pageSize.height - 10, { align: 'center' });
-        }
-        
-        // Sauvegarder le PDF
-        doc.save(`projets_sisag_${dateExport}.pdf`);
-        
-        btn.innerHTML = originalText;
-        showCustomAlert('Liste des projets exportée en PDF avec succès!', 'success');
-        
-    } catch (error) {
-        console.error('Erreur export PDF:', error);
-        btn.innerHTML = originalText;
-        showCustomAlert('Erreur lors de l\'export PDF', 'danger');
-    }
+    exporterPDFComplet();
 }
 
-// Fonction pour exporter en Excel (CSV)
+// Fonction pour exporter en Excel (TOUTES les données)
 function exporterExcel() {
     const btn = event.target.closest('.dropdown-item');
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Récupération...';
+
+    // Récupérer tous les projets via AJAX
+    fetch('get_all_projets.php?' + new URLSearchParams({
+        commune: '<?php echo $commune_filter; ?>',
+        statut: '<?php echo $statut_filter; ?>',
+        ministere: '<?php echo $ministere_filter; ?>',
+        recherche: '<?php echo $recherche_filter; ?>'
+    }))
+    .then(response => response.json())
+    .then(data => {
+        genererExcelComplet(data);
+        btn.innerHTML = originalText;
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        btn.innerHTML = originalText;
+        showCustomAlert('Erreur lors de la récupération des données', 'danger');
+    });
+}
+
+
+// Fonction principale pour exporter PDF complet
+function exporterPDFComplet() {
+    const btn = event.target.closest('.dropdown-item');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Récupération...';
+
+    // Récupérer tous les projets via AJAX
+    fetch('get_all_projets.php?' + new URLSearchParams({
+        commune: '<?php echo $commune_filter; ?>',
+        statut: '<?php echo $statut_filter; ?>',
+        ministere: '<?php echo $ministere_filter; ?>',
+        recherche: '<?php echo $recherche_filter; ?>'
+    }))
+    .then(response => response.json())
+    .then(data => {
+        genererPDFComplet(data);
+        btn.innerHTML = originalText;
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        btn.innerHTML = originalText;
+        showCustomAlert('Erreur lors de la récupération des données', 'danger');
+    });
+}
+
+// Générer PDF avec toutes les données
+function genererPDFComplet(projets) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    // Titre
+    const dateExport = new Date().toLocaleDateString('fr-FR');
+    doc.setFontSize(16);
+    doc.setTextColor(40, 40, 40);
+    doc.text('LISTE COMPLÈTE DES PROJETS - SISAG', 105, 15, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Export du ${dateExport} - ${projets.length} projet(s)`, 105, 22, { align: 'center' });
+
+    // Informations sur les filtres
+    let filtresText = 'Filtres: ';
+    const filtres = [];
     
-    try {
-        // Préparer les en-têtes CSV
-        const headers = [
-            'ID', 
-            'Nom Projet', 
-            'Commune', 
-            'Quartier', 
-            'Ministère', 
-            'Statut', 
-            'Budget ($)', 
-            'Date Début', 
-            'Date Fin', 
-            'Avancement (%)'
-        ];
-        
-        let csvContent = headers.join(';') + '\n';
-        
-        // Récupérer les données du tableau HTML
-        const rows = document.querySelectorAll('#regionProjectsTable tbody tr');
-        rows.forEach(row => {
-            const cells = row.querySelectorAll('td');
-            if (cells.length > 0) {
-                const rowData = [
-                    cells[0].textContent.trim(),
-                    `"${cells[1].textContent.trim()}"`,
-                    `"${cells[2].textContent.trim()}"`,
-                    `"${cells[3].textContent.trim()}"`,
-                    `"${cells[4].textContent.trim()}"`,
-                    cells[5].textContent.trim(),
-                    cells[6].textContent.trim().replace(/\s/g, ''),
-                    cells[7].textContent.trim(),
-                    cells[8].textContent.trim(),
-                    cells[9].textContent.trim().replace('%', '')
-                ];
-                csvContent += rowData.join(';') + '\n';
-            }
-        });
-        
-        // Créer et télécharger le fichier CSV
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const dateExport = new Date().toLocaleDateString('fr-FR');
-        link.download = `projets_sisag_${dateExport}.csv`;
-        link.href = URL.createObjectURL(blob);
-        link.click();
-        URL.revokeObjectURL(link.href);
-        
-        btn.innerHTML = originalText;
-        showCustomAlert('Liste des projets exportée en CSV avec succès!', 'success');
-        
-    } catch (error) {
-        console.error('Erreur export CSV:', error);
-        btn.innerHTML = originalText;
-        showCustomAlert('Erreur lors de l\'export CSV', 'danger');
+    <?php if (!empty($commune_filter)): ?>
+        filtres.push('Commune: <?php echo $commune_filter; ?>');
+    <?php endif; ?>
+    
+    <?php if (!empty($statut_filter)): ?>
+        filtres.push('Statut: <?php echo $statut_filter; ?>');
+    <?php endif; ?>
+    
+    <?php if (!empty($ministere_filter)): ?>
+        filtres.push('Ministère: <?php echo $ministere_filter; ?>');
+    <?php endif; ?>
+    
+    <?php if (!empty($recherche_filter)): ?>
+        filtres.push('Recherche: <?php echo $recherche_filter; ?>');
+    <?php endif; ?>
+    
+    if (filtres.length === 0) {
+        filtresText = 'Aucun filtre appliqué';
+    } else {
+        filtresText += filtres.join(', ');
     }
+    
+    doc.setFontSize(8);
+    doc.text(filtresText, 14, 30);
+
+    // Préparer les données pour autoTable
+    const headers = [
+        'ID', 'Nom Projet', 'Commune', 'Quartier', 'Ministère', 
+        'Statut', 'Budget ($)', 'Date Début', 'Date Fin', 'Avancement'
+    ];
+
+    const data = projets.map(projet => [
+        projet.id_projet,
+        projet.nom_projet,
+        projet.commune,
+        projet.quartier,
+        projet.ministere,
+        projet.statut,
+        numberFormat(projet.budget) + ' $',
+        formatDate(projet.date_debut),
+        formatDate(projet.date_fin),
+        projet.avancement + '%'
+    ]);
+
+    // Générer le tableau
+    doc.autoTable({
+        startY: 35,
+        head: [headers],
+        body: data,
+        theme: 'grid',
+        styles: {
+            fontSize: 7,
+            cellPadding: 1,
+            overflow: 'linebreak'
+        },
+        headStyles: {
+            fillColor: [13, 110, 253],
+            textColor: 255,
+            fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+            fillColor: [240, 240, 240]
+        },
+        columnStyles: {
+            0: { cellWidth: 8 },
+            1: { cellWidth: 30 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 18 },
+            4: { cellWidth: 22 },
+            5: { cellWidth: 15 },
+            6: { cellWidth: 18 },
+            7: { cellWidth: 15 },
+            8: { cellWidth: 15 },
+            9: { cellWidth: 15 }
+        },
+        margin: { top: 35 }
+    });
+
+    // Pied de page
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Page ${i}/${pageCount} - SISAG - ${dateExport}`, 105, doc.internal.pageSize.height - 10, { align: 'center' });
+    }
+
+    // Sauvegarder
+    doc.save(`projets_complets_${dateExport.replace(/\//g, '-')}.pdf`);
+    showCustomAlert('Export PDF complet réussi!', 'success');
 }
 
-// Fonction pour afficher les messages d'alerte personnalisés
-function showCustomAlert(message, type) {
-    const alertClass = {
-        'success': 'alert-success-custom',
-        'danger': 'alert-danger-custom',
-        'warning': 'alert-warning-custom'
-    }[type] || 'alert-success-custom';
+// Générer Excel avec toutes les données
+function genererExcelComplet(projets) {
+    // Préparer les en-têtes CSV
+    const headers = [
+        'ID',
+        'Nom Projet',
+        'Commune', 
+        'Quartier',
+        'Ministère',
+        'Statut',
+        'Budget ($)',
+        'Date Début',
+        'Date Fin',
+        'Avancement (%)'
+    ];
 
-    const alertIcon = {
-        'success': 'fas fa-check-circle',
-        'danger': 'fas fa-exclamation-triangle',
-        'warning': 'fas fa-exclamation-triangle'
-    }[type] || 'fas fa-info-circle';
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+    csvContent += headers.join(';') + '\n';
 
-    const alertTitle = {
-        'success': 'Succès',
-        'danger': 'Erreur',
-        'warning': 'Attention'
-    }[type] || 'Information';
+    // Ajouter les données
+    projets.forEach(projet => {
+        const row = [
+            projet.id_projet,
+            `"${projet.nom_projet}"`,
+            `"${projet.commune}"`,
+            `"${projet.quartier}"`,
+            `"${projet.ministere}"`,
+            projet.statut,
+            numberFormat(projet.budget),
+            formatDate(projet.date_debut),
+            formatDate(projet.date_fin),
+            projet.avancement
+        ];
+        csvContent += row.join(';') + '\n';
+    });
 
-    const alertHtml = `
-        <div class="alert ${alertClass} alert-custom alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999; min-width: 300px;">
-            <div class="d-flex align-items-center">
-                <i class="${alertIcon} alert-icon"></i>
-                <div>
-                    <h5 class="alert-heading mb-2">${alertTitle}</h5>
-                    <div class="mb-0">${message}</div>
+    // Télécharger
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `projets_complets_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showCustomAlert('Export CSV complet réussi!', 'success');
+}
+
+// Fonctions utilitaires
+function numberFormat(number) {
+    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('fr-FR');
+}
+
+
+    // Fonction pour afficher les messages d'alerte personnalisés
+    function showCustomAlert(message, type) {
+        const alertClass = {
+            'success': 'alert-success-custom',
+            'danger': 'alert-danger-custom',
+            'warning': 'alert-warning-custom'
+        }[type] || 'alert-success-custom';
+
+        const alertIcon = {
+            'success': 'fas fa-check-circle',
+            'danger': 'fas fa-exclamation-triangle',
+            'warning': 'fas fa-exclamation-triangle'
+        }[type] || 'fas fa-info-circle';
+
+        const alertTitle = {
+            'success': 'Succès',
+            'danger': 'Erreur',
+            'warning': 'Attention'
+        }[type] || 'Information';
+
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-custom alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999; min-width: 300px;">
+                <div class="d-flex align-items-center">
+                    <i class="${alertIcon} alert-icon"></i>
+                    <div>
+                        <h5 class="alert-heading mb-2">${alertTitle}</h5>
+                        <div class="mb-0">${message}</div>
+                    </div>
                 </div>
+                <button type="button" class="btn-close-custom position-absolute top-0 end-0 m-3" data-bs-dismiss="alert" aria-label="Close" onclick="closeAlert(this)">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <button type="button" class="btn-close-custom position-absolute top-0 end-0 m-3" data-bs-dismiss="alert" aria-label="Close" onclick="closeAlert(this)">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
+        `;
 
-    document.body.insertAdjacentHTML('beforeend', alertHtml);
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
 
-    // Auto-supprimer après 5 secondes
-    setTimeout(() => {
-        const alert = document.querySelector('.position-fixed.alert');
-        if (alert) {
-            alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 300);
-        }
-    }, 5000);
-}
+        // Auto-supprimer après 5 secondes
+        setTimeout(() => {
+            const alert = document.querySelector('.position-fixed.alert');
+            if (alert) {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            }
+        }, 5000);
+    }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>

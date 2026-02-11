@@ -1,5 +1,9 @@
 <?php
-;
+header('Content-Type: text/html; charset=utf-8');
+
+//inclure le fichier de verification 
+require_once 'check_session.php';
+
 
 // Connexion à la base de données
 $conn = new mysqli("localhost", "root", "", "sisag");
@@ -69,6 +73,14 @@ while($row = $result_statuts->fetch_assoc()) {
     $statuts_counts[] = $row['count'];
 }
 
+// Récupérer les infos 
+$sql = "SELECT * FROM citoyen WHERE id_citoyen = ?"; 
+$stmt = $conn->prepare($sql); 
+$stmt->bind_param("i", $id_citoyen); 
+$stmt->execute(); $result = $stmt->get_result(); 
+$citoyen = $result->fetch_assoc(); 
+
+
 $conn->close();
 ?>
 <!DOCTYPE html>
@@ -83,7 +95,7 @@ $conn->close();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- Chart.js -->
@@ -103,7 +115,75 @@ $conn->close();
              background-color : #f8f9fa;
         }
         h3{
-            font-family: 'Times New Roman', Times, serif;
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
+        }
+        /* Styles pour les messages d'alerte personnalisés */
+        .alert-custom {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            animation: slideInDown 0.5s ease-out;
+        }
+        
+        .alert-success-custom {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        
+        .alert-danger-custom {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        
+        .alert-warning-custom {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        @keyframes slideInDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .alert-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        
+        .btn-close-custom {
+            background: transparent;
+            border: none;
+            font-size: 1.2rem;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+        
+        .btn-close-custom:hover {
+            opacity: 1;
+        }
+        .admin{
+            height :30px;
+            width : 30px;
+            background-color : white;
+            font-size : 20px;
+        }
+        .admin a{
+            color : black;
+        }
+        .nom{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-style: italic;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -151,15 +231,19 @@ $conn->close();
             border-left-color: var(--warning-color);
         }
         
-      
-        
         .project-image {
             height: 80px;
             width: 100px;
             object-fit: cover;
             border-radius: 8px;
         }
-        
+        .project-image {
+            transition: transform 0.2s;
+        }
+
+        .project-image:hover {
+            transform: scale(1.05);
+        }
         .progress {
             height: 15px;
         }
@@ -190,6 +274,11 @@ $conn->close();
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
+                            <a class="nav-link" href="accueil.php" data-page="dashboard">
+                                <i class="fas fa-house"></i> Accueil
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link active" href="dashboard.php" data-page="dashboard">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
@@ -199,11 +288,26 @@ $conn->close();
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
+                        <?php if (!isset($_SESSION['id_citoyen'])): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="login.php">
+                                    <i class="fas fa-sign-in-alt"></i> Se connecter
+                                </a>
+                            </li>
+                        <?php endif; ?>
+                        
                         <li class="nav-item">
-                            <a class="nav-link" href="#" data-page="projects">
-                                <i class="fas fa-list"></i> Mes projets suivis
+                            <a class="nav-link" href="mes_projets_suivis.php" data-page="suivis">
+                                <i class="fas fa-bookmark"></i> Mes projets suivis
                             </a>
                         </li>
+                        <?php if (isset($_SESSION['id_citoyen'])): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="deconnexion_citoyen.php">
+                                    <i class="fas fa-sign-out-alt"></i> Déconnexion
+                                </a>
+                            </li>
+                        <?php endif; ?>
                     </ul>
                 </div>
             </div>
@@ -215,9 +319,14 @@ $conn->close();
                         <h3>Tableau de bord</h3>
                     </div>
                     <div class="d-flex align-items-center">
-                        <span class="navbar-text" style="font-size : 20px;">
-                        <a href="../admin/login.php"><i class="bi bi-person-gear"></i> </a>admin
-                        </span>
+                        <div class="admin rounded-2">
+                            <a href="../admin/login.php"><i class="bi bi-person-gear ms-1"></i> </a>
+                        </div>
+                        <div class="nom ms-2">
+                            <?php if ($citoyen): ?>
+                                <?php echo $citoyen['nom'] ?? 'Utilisateur'; ?> <?php echo $citoyen['prenom']  ?? 'Utilisateur'; ?>
+                            <?php endif; ?>
+                        </div>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-warning text-white ms-2 dropdown-toggle" 
                                     type="button" id="dropdownExport" 
@@ -492,8 +601,8 @@ $conn->close();
                 });
             }
         });
-        // Fonction pour exporter en image - VERSION SIMPLIFIÉE
-        async function exporterImage() {
+      // Fonction pour exporter en image 
+      async function exporterImage() {
             const btn = event.target.closest('.dropdown-item');
             const originalText = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
@@ -515,17 +624,17 @@ $conn->close();
                 link.click();
                 document.body.removeChild(link);
                 
-                alert('✅ Dashboard exporté en image!');
+                showCustomAlert(' Dashboard exporté en image!', 'success');
             } catch (error) {
                 console.error('Erreur export:', error);
-                alert('❌ Erreur lors de l\'export. Vérrez la console.');
+                showCustomAlert(' Erreur lors de l\'export. Vérrez la console.', 'danger');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
             }
         }
 
-    // Fonction pour exporter en PDF - VERSION SIMPLIFIÉE
+    // Fonction pour exporter en PDF 
     async function exporterPDF() {
         const btn = event.target.closest('.dropdown-item');
         const originalText = btn.innerHTML;
@@ -553,14 +662,60 @@ $conn->close();
             doc.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
             doc.save('dashboard_sisag_' + new Date().toISOString().split('T')[0] + '.pdf');
             
-            alert(' Dashboard exporté en PDF!');
+            showCustomAlert(' Dashboard exporté en PDF!','success');
         } catch (error) {
             console.error('Erreur export PDF:', error);
-            alert(' Erreur export PDF. Vérrez la console.');
+            showCustomAlert(' Erreur export PDF. Vérrez la console.','danger');
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
+    }
+    // Fonction pour afficher les messages d'alerte personnalisés
+    function showCustomAlert(message, type) {
+        const alertClass = {
+            'success': 'alert-success-custom',
+            'danger': 'alert-danger-custom',
+            'warning': 'alert-warning-custom'
+        }[type] || 'alert-success-custom';
+
+        const alertIcon = {
+            'success': 'fas fa-check-circle',
+            'danger': 'fas fa-exclamation-triangle',
+            'warning': 'fas fa-exclamation-triangle'
+        }[type] || 'fas fa-info-circle';
+
+        const alertTitle = {
+            'success': 'Succès',
+            'danger': 'Erreur',
+            'warning': 'Attention'
+        }[type] || 'Information';
+
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-custom alert-dismissible fade show position-fixed top-0 end-0 m-3" style="z-index: 9999; min-width: 300px;">
+                <div class="d-flex align-items-center">
+                    <i class="${alertIcon} alert-icon"></i>
+                    <div>
+                        <h5 class="alert-heading mb-2">${alertTitle}</h5>
+                        <div class="mb-0">${message}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close-custom position-absolute top-0 end-0 m-3" data-bs-dismiss="alert" aria-label="Close" onclick="closeAlert(this)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', alertHtml);
+
+        // Auto-supprimer après 5 secondes
+        setTimeout(() => {
+            const alert = document.querySelector('.position-fixed.alert');
+            if (alert) {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            }
+        }, 5000);
     }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>

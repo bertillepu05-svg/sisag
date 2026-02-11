@@ -1,0 +1,205 @@
+<?php
+header('Content-Type: text/html; charset=utf-8');
+session_name('admin_session');
+session_start();
+
+if (!isset($_SESSION['id_adm'])) {
+    header("Location: login.php");
+    exit;
+}
+$id_adm = $_SESSION['id_adm'];
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>projet_critique</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+        
+        body{
+             background-color : #f8f9fa;
+        }
+        h3{
+            font-family: 'Times New Roman', Times, serif;
+        }
+        .sidebar .icone{
+            font-weight:bold;
+            font-size:20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 0.75rem 1rem;
+            border-radius: 0.25rem;
+            margin-bottom: 0.25rem;
+            margin-left:0.25rem;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar .nav-link i {
+            margin-right: 0.5rem;
+        }
+        .stat-card {
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-card.retard {
+            border-left-color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
+                <div class="d-flex p-3 icone">
+                    <i class="fas fa-chart-line me-2"></i>SISAG
+                </div>
+                <div class="position-sticky pt-3">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                                <i class="fas fa-tachometer-alt"></i> Tableau de bord
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                                <i class="fas fa-list"></i> Liste des projets
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                                <i class="fas fa-plus-circle"></i> Ajouter un projet
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="projet_critique.php" data-page="projects">
+                                <i class="fas fa-list"></i> Projets critiques
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
+                                <i class="fas fa-list"></i> Projets à venir
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
+                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php" data-page="projects">
+                                <i class="fas fa-list"></i> Commentaires
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <!-- Contenu droit -->
+            <div class="col-lg-10 col-md-9 p-4">
+                <!-- En tête -->
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3>Liste de projets critiques</h3>
+                    </div>
+                   <div class="d-flex align-items-center">
+                        <span class="navbar-text" style="font-size : 20px;">
+                        <i class="bi bi-person-gear"></i> Espace administrateur
+                        </span>
+                        <button type="button" class="btn btn-sm btn-warning text-white ms-3">Exporter</button>
+                    </div>
+                </div>
+                <hr>
+                <!-- Statistique Cards -->
+                <div class="row">
+                    <div class="col-xl-3 col-md-6 mb-4">
+                        <div class="card stat-card retard h-100">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">
+                                            Projets en retard</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">7</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- tableau-->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-list me-1"></i>
+                        <span>Liste des projets critiques</span>
+                    </div>
+                    <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="regionProjectsTable">
+                            <thead>
+                                <tr>
+                                    <th>Nom du projet</th>
+                                    <th>Région</th>
+                                    <th>Commune</th>
+                                    <th>Quartier</th>
+                                    <th>Ministère</th>
+                                    <th>Statut</th>
+                                    <th>Budget</th>
+                                    <th>Date début</th>
+                                    <th>Date fin prévue</th>
+                                    <th>Avancement</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Projects will be dynamically loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination -->
+                    <nav aria-label="Projects pagination">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" tabindex="-1">Précédent</a>
+                            </li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item"><a class="page-link" href="#">2</a></li>
+                            <li class="page-item"><a class="page-link" href="#">3</a></li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">Suivant</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

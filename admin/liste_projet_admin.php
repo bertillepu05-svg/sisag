@@ -107,19 +107,17 @@ $result_total_pages = $conn->query($sql_total_pages);
 $total_projets = $result_total_pages->fetch_assoc()['total'];
 $total_pages = ceil($total_projets / $limit);
 
-// Action de suppression 
-if (isset($_GET['supprimer'])) {
-    $id = intval($_GET['supprimer']);
-    $conn = new mysqli("localhost", "root", "", "sisag");
-    if ($conn->connect_error) {
-        die("Erreur de connexion: " . $conn->connect_error);
-    }
 
-    $conn->query("DELETE FROM projet WHERE id_projet = $id");
-    $conn->close();
 
-    $_SESSION['success_message'] = 'Projet supprimé avec succès';
-}
+// afficher le nom 
+$sql = "SELECT nom_adm, prenom_adm FROM administrateur WHERE id_adm = ?"; 
+$stmt = $conn->prepare($sql); 
+$stmt->bind_param("i", $id_adm); 
+$stmt->execute(); 
+$result = $stmt->get_result(); 
+$adm = $result->fetch_assoc(); 
+
+$conn->close();
                             
 ?>
 <!DOCTYPE html>
@@ -153,6 +151,10 @@ if (isset($_GET['supprimer'])) {
         
         body{
              background-color : #f8f9fa;
+        }
+        .nom{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-style: italic;
         }
          /* Styles pour les messages d'alerte personnalisés */
          .alert-custom {
@@ -207,8 +209,10 @@ if (isset($_GET['supprimer'])) {
         .btn-close-custom:hover {
             opacity: 1;
         }
-        h3{
-            font-family: 'Times New Roman', Times, serif;
+         h3{
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -322,48 +326,53 @@ if (isset($_GET['supprimer'])) {
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-              <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
+            <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
                 <div class="d-flex p-3 icone">
                     <i class="fas fa-chart-line me-2"></i>SISAG
                 </div>
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="liste_projet_admin.php" data-page="projects">
+                            <a class="nav-link active" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
+                            <a class="nav-link" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des admins
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
                             </a>
                         </li>
-                        <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>
@@ -425,9 +434,15 @@ if (isset($_GET['supprimer'])) {
                         <h3>Liste des projets</h3>
                     </div>
                     <div class="d-flex align-items-center">
-                        <span class="navbar-text" style="font-size : 20px;">
-                        <i class="bi bi-person-gear"></i> Espace administrateur
-                        </span>
+                        <div class="icone">
+                            <i class="bi bi-person-gear"></i> 
+                        </div>
+                        <div class="nom ms-2">
+                            <?php if ($adm): ?>
+                                <?php echo $adm['nom_adm'] ?? 0; ?>
+                                <?php echo $adm['prenom_adm'] ?? 0; ?>
+                            <?php endif; ?>
+                        </div>
                         <div class="dropdown">
                             <button class="btn btn-sm btn-warning text-white ms-2 dropdown-toggle" 
                                     type="button" id="dropdownExport" 
@@ -642,11 +657,6 @@ if (isset($_GET['supprimer'])) {
                                                         <a href='update.php?id=".$ligne['id_projet']."' class='btn btn-warning btn-sm'>
                                                             <i class='fas fa-edit'></i> 
                                                         </a>
-                                                        <a href='?supprimer=".$ligne['id_projet']."' 
-                                                            onclick='return confirm(\"Voulez-vous vraiment supprimer ce candidat ?\");' 
-                                                            class='btn btn-danger btn-sm ms-1'>
-                                                                <i class='bi bi-trash'></i> 
-                                                         </a>
                                                         <a href='detail_projet.php?id=".$ligne['id_projet']."' class='btn btn-sm btn-outline-primary view-project btn-sm ms-1'>
                                                             <i class='fas fa-eye'></i> 
                                                         </a>
@@ -897,18 +907,18 @@ function exporterPDF() {
                 fillColor: [240, 240, 240]
             },
             columnStyles: {
-                0: { cellWidth: 15 }, // ID
+                0: { cellWidth: 8 }, // ID
                 1: { cellWidth: 30 }, // Nom Projet
-                2: { cellWidth: 25 }, // Commune
+                2: { cellWidth: 18 }, // Commune
                 3: { cellWidth: 25 }, // Quartier
-                4: { cellWidth: 25 }, // Ministère
-                5: { cellWidth: 20 }, // Statut
-                6: { cellWidth: 25 }, // Budget
+                4: { cellWidth: 23 }, // Ministère
+                5: { cellWidth: 16 }, // Statut
+                6: { cellWidth: 23 }, // Budget
                 7: { cellWidth: 20 }, // Date Début
                 8: { cellWidth: 20 }, // Date Fin
-                9: { cellWidth: 20 }  // Avancement
+                9: { cellWidth: 15 }  // Avancement
             },
-            margin: { top: 40 }
+            margin: { left: 5 }
         });
         
         // Pied de page

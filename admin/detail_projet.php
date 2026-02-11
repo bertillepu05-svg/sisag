@@ -29,75 +29,6 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 }
 
 
-// Récupérer tous les commentaires pour ce projet (pour l'admin)
-try {
-    $sql_comments = "SELECT * FROM commentaire 
-                    WHERE id_projet = :id_projet 
-                    ORDER BY 
-                        CASE statut 
-                            WHEN 'en_attente' THEN 1 
-                            WHEN 'approuve' THEN 2 
-                            WHEN 'rejete' THEN 3 
-                        END,
-                        date_commentaire DESC";
-    $stmt_comments = $conn->prepare($sql_comments);
-    $stmt_comments->bindParam(':id_projet', $id_projet);
-    $stmt_comments->execute();
-    $commentaires = $stmt_comments->fetchAll(PDO::FETCH_ASSOC);
-    $total_commentaires = count($commentaires);
-    
-    // Statistiques
-    $stats = [
-        'en_attente' => 0,
-        'approuves' => 0,
-        'rejetes' => 0
-    ];
-    
-    foreach ($commentaires as $comment) {
-        $stats[$comment['statut']]++;
-    }
-    
-} catch(PDOException $e) {
-    $commentaires = [];
-    $total_commentaires = 0;
-    $stats = ['en_attente' => 0, 'approuves' => 0, 'rejetes' => 0];
-}
-
-// Gestion des actions de modération (à ajouter au traitement POST existant)
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
-    $id_commentaire = $_POST['id_commentaire'];
-    $action = $_POST['action'];
-    
-    try {
-        if ($action == 'approuver') {
-            $sql = "UPDATE commentaire SET statut = 'approuve' WHERE id_commentaire = :id_commentaire";
-            $message = "Commentaire approuvé!";
-        } elseif ($action == 'rejeter') {
-            $sql = "UPDATE commentaire SET statut = 'rejete' WHERE id_commentaire = :id_commentaire";
-            $message = "Commentaire rejeté.";
-        } elseif ($action == 'reouvrir') {
-            $sql = "UPDATE commentaire SET statut = 'en_attente' WHERE id_commentaire = :id_commentaire";
-            $message = "Commentaire remis en attente.";
-        } elseif ($action == 'supprimer') {
-            $sql = "DELETE FROM commentaire WHERE id_commentaire = :id_commentaire";
-            $message = "Commentaire supprimé.";
-        }
-        
-        $stmt = $conn->prepare($sql);
-        $stmt->bindParam(':id_commentaire', $id_commentaire);
-        $stmt->execute();
-        
-        $_SESSION['success_message'] = $message;
-        
-        // Recharger la page pour voir les changements
-        header("Location: detail_projet_admin.php?id=" . $id_projet);
-        exit;
-        
-    } catch(PDOException $e) {
-        $_SESSION['error_message'] = "Erreur: " . $e->getMessage();
-    }
-}
-
 $id_projet = $_GET['id'];
 
 // Récupérer les données du projet
@@ -116,6 +47,8 @@ try {
     die("Erreur: " . $e->getMessage());
 }
 
+
+
 // Récupérer les phases du projet
 try {
     $sql_phases = "SELECT p.*, 
@@ -131,56 +64,67 @@ try {
     $phases = [];
 }
 
-// Traitement du formulaire de commentaire
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['commentaire'])) {
-    $nom = $_POST['nom'];
-    $prenom = $_POST['prenom'];
-    $sexe = $_POST['sexe'];
-    $email = $_POST['email'];
-    $telephone = $_POST['telephone'];
-    $profession = $_POST['profession'];
-    $commentaire_text = $_POST['commentaire_text'];
-    
-    try {
-        $sql_comment = "INSERT INTO commentaire (id_projet, nom, prenom, sexe, email, telephone, profession, commentaire, date_commentaire) 
-                       VALUES (:id_projet, :nom, :prenom, :sexe, :email, :telephone, :profession, :commentaire, NOW())";
-        $stmt_comment = $conn->prepare($sql_comment);
-        $stmt_comment->bindParam(':id_projet', $id_projet);
-        $stmt_comment->bindParam(':nom', $nom);
-        $stmt_comment->bindParam(':prenom', $prenom);
-        $stmt_comment->bindParam(':sexe', $sexe);
-        $stmt_comment->bindParam(':email', $email);
-        $stmt_comment->bindParam(':telephone', $telephone);
-        $stmt_comment->bindParam(':profession', $profession);
-        $stmt_comment->bindParam(':commentaire', $commentaire_text);
-        $stmt_comment->execute();
+ // TRAITEMENT DU FORMULAIRE DE COMMENTAIRE 
+ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['commentaire'])) {
         
-        $success_message = "Votre commentaire a été envoyé avec succès!";
-    } catch(PDOException $e) {
-        $error_message = "Erreur lors de l'envoi du commentaire: " . $e->getMessage();
+    // Vérifier si l'utilisateur est connecté
+    if (!isset($_SESSION['id_citoyen'])) {
+        $_SESSION['error_message'] = "Connectez-vous pour pouvoir utiliser cette fonctionnalité";
+        header("Location: liste_projet.php");
+        exit;
+    }
+    
+    $id_citoyen = $_SESSION['id_citoyen'];
+    $commentaire_text = trim($_POST['commentaire_text']);
+    
+    // Validation du commentaire
+    if (!empty($commentaire_text)) {
+        try {
+            // INSERT CORRIGÉ : ajout de id_citoyen
+            $sql_comment = "INSERT INTO commentaire (id_projet, id_citoyen, commentaire, date_commentaire)
+                        VALUES (:id_projet, :id_citoyen, :commentaire, NOW())";
+            $stmt_comment = $conn->prepare($sql_comment);
+            $stmt_comment->bindParam(':id_projet', $id_projet);
+            $stmt_comment->bindParam(':id_citoyen', $id_citoyen);
+            $stmt_comment->bindParam(':commentaire', $commentaire_text);
+            $stmt_comment->execute();
+
+            if ($stmt_comment) {
+                 $success_message = "Votre commentaire a été envoyé avec succès! Il sera visible après modération.";
+                // Redirection pour éviter le re-soumission du formulaire
+                header("Location: detail_projet.php?id=" . $id_projet . "&success=1");
+                exit;
+            }
+            
+        } catch(PDOException $e) {
+            $error_message = "Erreur lors de l'envoi du commentaire: " . $e->getMessage();
+        }
+    } else {
+        $error_message = "Veuillez écrire un commentaire avant de soumettre.";
     }
 }
 
-// Créer la table commentaire si elle n'existe pas
+// RÉCUPÉRATION DES COMMENTAIRES 
 try {
-    $sql_create_table = "CREATE TABLE commentaire (
-        id_commentaire INT AUTO_INCREMENT PRIMARY KEY,
-        id_projet INT NOT NULL,
-        nom VARCHAR(100) NOT NULL,
-        prenom VARCHAR(100) NOT NULL,
-        sexe ENUM('M', 'F') NOT NULL,
-        email VARCHAR(255),
-        telephone VARCHAR(20),
-        profession VARCHAR(100),
-        commentaire TEXT NOT NULL,
-        date_commentaire TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        statut ENUM('en_attente', 'approuve', 'rejete') DEFAULT 'en_attente',
-        FOREIGN KEY (id_projet) REFERENCES projet(id_projet) ON DELETE CASCADE
-    )";
-    $conn->exec($sql_create_table);
+    $sql_comments = "SELECT c.*, ci.prenom, ci.nom, ci.sexe, ci.profession, p.*
+                    FROM commentaire c
+                    INNER JOIN projet p ON c.id_projet = p.id_projet
+                    INNER JOIN citoyen ci ON c.id_citoyen = ci.id_citoyen
+                    WHERE c.statut = 'approuve'
+                    AND c.id_projet = :id_projet  
+                    ORDER BY c.date_commentaire DESC 
+                    LIMIT 3";
+    
+    $stmt_comments = $conn->prepare($sql_comments);
+    $stmt_comments->bindParam(':id_projet', $id_projet);
+    $stmt_comments->execute();
+    $approuved = $stmt_comments->fetchAll(PDO::FETCH_ASSOC);
+    
 } catch(PDOException $e) {
-    // La table existe probablement déjà
+    $approuved = [];
 }
+
+
     // PAGINATION DES PHASES - 2 phases par page
     $phases_par_page = 2; // 2 phases par page comme demandé
     $page_phase = isset($_GET['page_phase']) ? (int)$_GET['page_phase'] : 1;
@@ -220,6 +164,8 @@ try {
         echo '<p class="text-danger">Erreur lors du chargement des phases: ' . $e->getMessage() . '</p>';
     }
 
+
+
 ?>
 
 <!DOCTYPE html>
@@ -248,7 +194,9 @@ try {
              background-color : #f8f9fa;
         }
         h3{
-            font-family: 'Times New Roman', Times, serif;
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -280,6 +228,9 @@ try {
         }
         .stat-card.object {
             border-left-color: var(--danger-color);
+        }
+        .stat-card.comment {
+            border-left-color: var(--success-color);
         }
         .photo {
         height: 250px;
@@ -372,7 +323,17 @@ try {
         .timeline-marker.bg-warning { box-shadow: 0 0 0 3px #ffc107; }
         .timeline-marker.bg-info { box-shadow: 0 0 0 3px #0dcaf0; }
         .timeline-marker.bg-danger { box-shadow: 0 0 0 3px #dc3545; }
-
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: #0d6efd;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -386,41 +347,46 @@ try {
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
-                        <li class="nav-item active">
-                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
-                            </a>
-                        </li>
-                       <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des admins
                             </a>
                         </li>
-                        <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>
@@ -435,7 +401,7 @@ try {
                     <div>
                         <h3>Détail du projet</h3>
                     </div>
-                    <a href="liste_projet_admin.php" class="btn btn-outline-dark border rounded-2 ps-2 pe-2" typ="submit" style="background-color : white; height : 33px;"><i class="fas fa-arrow-left"></i> Retour à la liste</a>
+                    <a href="liste_projet_admin.php" class="btn btn-outline-warning border rounded-2 ps-2 pe-2" typ="submit" style="background-color : white; height : 33px;"><i class="fas fa-arrow-left"></i> Retour à la liste</a>
                 </div>
                 <hr>
                 <!--detais & image-->
@@ -475,11 +441,11 @@ try {
                         </div>
                     </div>
                 </div>
-                <!--detais & objectif-->
-                <div class="row">
+                <!--info & objectif-->
+                <div class="row ">
                     <!--info generale-->
                     <div class="col-xl-6 col-lg-7">
-                        <div class="card stat-card info h-100">
+                        <div class="card stat-card info mt-4">
                             <div class="card-body">
                                 <div class="card-title">
                                     <h3>Informations générales</h3>
@@ -521,17 +487,18 @@ try {
                                         <span><?php echo date('d/m/Y', strtotime($projet['date_fin'])); ?></span>
                                     </li>
                                 </ul>
+                                <hr>
                             </div>
                         </div>
                     </div>
-                    <!--ojectif-->
+                    <!--objectif-->
                     <div class="col-xl-6 col-lg-7">
-                        <div class="card stat-card object h-100">
-                            <div class="card-body">
+                        <div class="card stat-card object mt-4">
+                        <div class="card-body">
                                 <div class="card-title">
                                     <h3>Objectifs</h3>
                                 </div>
-                                <div class="text-muted pt-3">
+                                <div class="text-muted">
                                     <?php echo nl2br(htmlspecialchars($projet['objectif'] ?? 'Aucun objectif défini.')); ?>
                                 </div>
                                 <p class="mt-3"><strong>Avancement</strong></p>
@@ -558,8 +525,8 @@ try {
                         </div>
                     </div>
                 </div>
-                <!--historique & formulaire-->
-                <div class="row">
+                <!--historique & commentaire-->
+                <div class="row ">
                     <!--historique-->
                     <div class="col-xl-6 col-lg-7">
                         <div class="card mb-4 mt-4">
@@ -610,16 +577,14 @@ try {
                                                         if (count($images) > 0): ?>
                                                             <div class="d-flex flex-wrap gap-2 my-3">
                                                                 <?php foreach ($images as $image): 
-                                                                    // Correction du chemin pour l'affichage
-                                                                    $chemin_affichage = str_replace('../', '', $image['chemin_image']);
+                                                                    $chemin_affichage = '/sisag/photos/phases/' . basename($image['chemin_image']);
                                                                 ?>
                                                                     <a href="<?php echo $chemin_affichage; ?>" target="_blank" class="text-decoration-none">
                                                                         <img src="<?php echo $chemin_affichage; ?>" 
                                                                             alt="<?php echo htmlspecialchars($image['nom_image']); ?>" 
                                                                             class="photo_histo rounded-2"
-                                                                            style="height: 110px; width: 150px; object-fit: cover;"
-                                                                            title="<?php echo htmlspecialchars($image['nom_image']); ?>"
-                                                                            onerror="this.src='../photos/default/resto.jpg'">
+                                                                            style="height: 130px; width: 180px; object-fit: cover;"
+                                                                            title="<?php echo htmlspecialchars($image['nom_image']); ?>">
                                                                     </a>
                                                                 <?php endforeach; ?>
                                                             </div>
@@ -687,77 +652,64 @@ try {
                             </div>
                         </div>
                     </div>
-                    <!--formulaire-->
+                    <!--commentaire-->
                     <div class="col-xl-6 col-lg-7">
-                        <div class="card mb-4 mt-4">
-                            <div class="card-header bg-dark text-white">
-                                <i class="fas fa-comments me-1"></i>
-                                Laisser un commentaire
-                            </div>
-                            <div class="card-body">
-                                <div class="card-title">
-                                    <h3>Votre avis compte</h3>
-                                </div>
-                                
-                                <!-- Messages d'alerte -->
-                                <?php if (isset($success_message)): ?>
-                                    <div class="alert alert-success alert-dismissible fade show">
-                                        <i class="fas fa-check-circle me-2"></i>
-                                        <?php echo $success_message; ?>
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <?php if (isset($error_message)): ?>
-                                    <div class="alert alert-danger alert-dismissible fade show">
-                                        <i class="fas fa-exclamation-triangle me-2"></i>
-                                        <?php echo $error_message; ?>
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <form action="detail_projet.php?id=<?php echo $id_projet; ?>" method="POST">
+                        <div class="card stat-card comment mt-4">
+                            <!-- Onglet Approuvés -->
+                            <div class="">
+                                <h3 class="p-3">Quelques avis</h3>
+                                <?php if (count($approuved) > 0): ?>
                                     <div class="row">
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label required"><strong>Nom</strong></label>
-                                            <input type="text" name="nom" placeholder="Nom*" class="form-control rounded-2" required>
-                                        </div>
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label required"><strong>Prénom</strong></label>
-                                            <input type="text" name="prenom" placeholder="Prénom*" class="form-control rounded-2" required>
-                                        </div>
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label required"><strong>Sexe</strong></label><br>
-                                            <select class="form-select" name="sexe" required>
-                                                <option value="">--Sélectionner--</option>
-                                                <option value="M">Homme</option>
-                                                <option value="F">Femme</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label"><strong>Email</strong></label>
-                                            <input type="email" name="email" placeholder="Email" class="form-control rounded-2">
-                                        </div>
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label"><strong>Téléphone</strong></label>
-                                            <input type="tel" name="telephone" placeholder="+243 XX XXX XXXX" class="form-control rounded-2">
-                                        </div>
-                                        <div class="col-md-6 form-group mt-3">
-                                            <label class="form-label"><strong>Profession</strong></label>
-                                            <input type="text" name="profession" placeholder="Profession" class="form-control rounded-2">
-                                        </div>
-                                        <div class="mb-3 mt-3">
-                                            <label for="commentaire_text" class="form-label required"><strong>Commentaire</strong></label>
-                                            <textarea class="form-control" name="commentaire_text" rows="4" 
-                                                    placeholder="Laissez-nous un commentaire sur ce que vous pensez du projet*" required></textarea>
-                                        </div>
-                                        <div class="text-center">
-                                            <button type="submit" name="commentaire" class="btn btn-warning w-75 text-white mt-3">
-                                                Soumettre <i class="fas fa-paper-plane ms-1"></i>
+                                        <?php foreach ($approuved as $comment): ?>
+                                            <div class="">
+                                                <div class="comment-card approuve ps-4 pt-1 rounded">
+                                                    <div class="d-flex align-items-start">
+                                                        <div class="user-avatar me-3">
+                                                            <?php echo strtoupper(substr($comment['prenom'], 0, 1) . substr($comment['nom'], 0, 1)); ?>
+                                                        </div>
+                                                        <div class="flex-grow-1">
+                                                            <h6 class="mb-1"><?php echo htmlspecialchars($comment['prenom'] . ' ' . $comment['nom']); ?></h6>
+                                                            <small class="text-muted">
+                                                                <?php echo ($comment['sexe'] == 'M') ? 'Homme' : 'Femme'; ?>
+                                                                <?php if (!empty($comment['profession'])): ?>
+                                                                    • <?php echo htmlspecialchars($comment['profession']); ?>
+                                                                <?php endif; ?>
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <p class="mb-2"><?php echo nl2br(htmlspecialchars($comment['commentaire'])); ?></p>
+                                                    
+                                                    <div class="small text-muted">
+                                                        <div><i class="fas fa-project-diagram me-1"></i> <?php echo htmlspecialchars($comment['nom_projet']); ?></div>
+                                                        <div><i class="fas fa-clock me-1"></i> <?php echo date('d/m/Y à H:i', strtotime($comment['date_commentaire'])); ?></div>
+                                                    </div>
+                                                    <hr>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                        <div class="mt-2 d-flex justify-content-center mb-4">
+                                            <button type="submit" name="" value="" class="btn btn-outline-success btn-sm">
+                                                <i class="fas fa-undo me-1"></i> Voir tous les avis
                                             </button>
                                         </div>
+                                        
                                     </div>
-                                </form>
+                                <?php else: ?>
+                                    <div class="text-center py-5">
+                                        <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                                       <h5 class="text-muted">Pas encore des commentaires, soyez le premier à commenter</h5>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <!-- comment -->
+                            <div class="ps-3 pe-3">
+                                <textarea class="form-control" name="commentaire_text" rows="4" placeholder="Laissez-nous un commentaire sur ce que vous pensez du projet" required></textarea>
+                            </div>
+                            <div class="text-center mb-3">
+                                <button type="submit" name="commentaire" class="btn btn-warning w-75 text-white mt-3">
+                                    Soumettre <i class="fas fa-paper-plane ms-1"></i>
+                                </button>
                             </div>
                         </div>
                     </div>

@@ -49,154 +49,222 @@ try {
     exit;
 }
 
-// Traitement de l'ajout de phase avec images
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['phase'])) { 
-    $nom_phase = $_POST['nom_phase']; 
-    $descript_phase = $_POST['descript_phase'];
 
-    try {
-        // Commencer une transaction
-        $conn->beginTransaction();
-
-        // Insertion de la phase dans la base de données
-        $sql_phase = "INSERT INTO phase (id_projet, nom_phase, descript_phase) 
-                     VALUES (:id_projet, :nom_phase, :descript_phase)";
-        $stmt_phase = $conn->prepare($sql_phase);
-        $stmt_phase->bindParam(':id_projet', $id_projet);
-        $stmt_phase->bindParam(':nom_phase', $nom_phase);
-        $stmt_phase->bindParam(':descript_phase', $descript_phase);
-        $stmt_phase->execute();
+    // Traitement du formulaire de mise à jour
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
+        $nouveau_statut = $_POST['statut'];
+        $nouvel_avancement = $_POST['avancement'];
+        $aujourdhui = date('Y-m-d');
+        $ancien_avancement = $projet['avancement'];
         
-        $id_phase = $conn->lastInsertId();
+        
+        $erreurs = [];
+        
 
-        // Traitement des images
-        if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
-            $dossier_upload = "../photos/phases/";
-            
-            // Créer le dossier s'il n'existe pas
-            if (!is_dir($dossier_upload)) {
-                mkdir($dossier_upload, 0777, true);
+        
+        if ($projet['statut'] == 'En cours' && $nouveau_statut == 'Terminé') {
+            // Forcer l'avancement à 100%
+            $nouvel_avancement = 100;
+        }
+        
+        // Empêcher les transitions interdites
+        $transitions_interdites = [
+            'Terminé' => ['À venir', 'En cours'],
+            'En cours' => ['À venir'],
+            'En retard' => ['À venir', 'En cours']
+        ];
+        
+        if (isset($transitions_interdites[$projet['statut']]) && 
+            in_array($nouveau_statut, $transitions_interdites[$projet['statut']])) {
+            $erreurs[] = "Transition interdite: impossible de passer de '{$projet['statut']}' à '$nouveau_statut'";
+        }
+        
+        // Vérifier la cohérence avancement/statut
+        if ($projet['statut'] == 'À venir' && $nouvel_avancement >= 0) {
+            $erreurs[] = "Pour toutes modifications d'avancement, changez d'abord le statut à 'En cours'";
+        }
+ 
+        // Vérifier la cohérence avancement/statut
+        if ($nouveau_statut == 'En cours' && $nouvel_avancement <= $ancien_avancement) {
+            $erreurs[] = "L'avancement doit crôitre et non decrôtre";
+        }
+        
+        // Vérifier la cohérence avancement/statut
+        if ($nouveau_statut == 'En retard' && $nouvel_avancement <= $ancien_avancement) {
+            $erreurs[] = "L'avancement doit crôitre et non decrôtre";
+        }
+
+        // Vérifier la cohérence avancement/statut
+        if ($nouveau_statut == 'Terminé' && $nouvel_avancement != 100) {
+            $erreurs[] = "Un projet terminé doit avoir un avancement de 100%";
+        }
+        
+        if ($nouveau_statut != 'Terminé' && $nouvel_avancement == 100) {
+            $erreurs[] = "L'avancement ne peut être à 100% que pour un projet terminé";
+        }
+        
+        // Si pas d'erreurs, mettre à jour
+        if (empty($erreurs)) {
+            try {
+                $sql = "UPDATE projet SET statut = :statut, avancement = :avancement WHERE id_projet = :id_projet";
+                $stmt = $conn->prepare($sql);
+                $stmt->bindParam(':statut', $nouveau_statut);
+                $stmt->bindParam(':avancement', $nouvel_avancement);
+                $stmt->bindParam(':id_projet', $id_projet);
+                
+                if ($stmt->execute()) {
+                    $_SESSION['success_message'] = "Projet mis à jour avec succès!";
+                } else {
+                    $_SESSION['error_message'] = "Erreur lors de la mise à jour";
+                }
+            } catch(PDOException $e) {
+                $_SESSION['error_message'] = "Erreur: " . $e->getMessage();
             }
-            
-            $images_upload = $_FILES['images'];
-            $images_count = count($images_upload['name']);
-            $images_uploaded = 0;
-            
-            // Limiter à 3 images maximum
-            if ($images_count > 3) {
-                throw new Exception("Maximum 3 images autorisées");
-            }
-            
-            for ($i = 0; $i < $images_count; $i++) {
-                if ($images_upload['error'][$i] === UPLOAD_ERR_OK) {
-                    $nom_fichier = uniqid() . '_' . basename($images_upload['name'][$i]);
-                    $chemin_complet = $dossier_upload . $nom_fichier;
+        } else {
+            $_SESSION['error_message'] = implode("<br>", $erreurs);
+        }
+    }
+
+    // Traitement de l'ajout de phase avec images
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['phase'])) { 
+        $nom_phase = $_POST['nom_phase']; 
+        $descript_phase = $_POST['descript_phase'];
+        $montant_depense = $_POST['montant_depense'];
+        
+        $erreurs = [];
+
+        if ($projet['statut'] == 'Terminé') {
+            $erreurs[] = "Un projet terminé ne peut plus avoir des phases d'avancements";
+        }
+
+        if ($projet['statut'] == 'À venir') {
+            $erreurs[] = "Un projet à venir ne peut pas avoir des phases d'avancements tant qu'il n'est pas en cours, changez d'abord le statut !";
+        }
+
+        if (empty($erreurs)){
+            try {
+                // Commencer une transaction
+                $conn->beginTransaction();
+    
+                // Insertion de la phase dans la base de données
+                $sql_phase = "INSERT INTO phase (id_projet, nom_phase, descript_phase, montant_depense) 
+                            VALUES (:id_projet, :nom_phase, :descript_phase, :montant_depense)";
+                $stmt_phase = $conn->prepare($sql_phase);
+                $stmt_phase->bindParam(':id_projet', $id_projet);
+                $stmt_phase->bindParam(':nom_phase', $nom_phase);
+                $stmt_phase->bindParam(':descript_phase', $descript_phase);
+                $stmt_phase->bindParam(':montant_depense',$montant_depense); 
+                $stmt_phase->execute();
+                
+                $id_phase = $conn->lastInsertId();
+    
+                // Traitement des images 
+                $images_uploaded = 0;
+                $max_files = 2;
+                
+                if (isset($_FILES['images']) && !empty($_FILES['images']['name'][0])) {
+                    $dossier_upload = "../photos/phases/";
                     
-                    // Vérifier le type de fichier
-                    $type_autorise = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                    $type_fichier = mime_content_type($images_upload['tmp_name'][$i]);
-                    
-                    if (!in_array($type_fichier, $type_autorise)) {
-                        throw new Exception("Type de fichier non autorisé: " . $images_upload['name'][$i]);
+                    // Créer le dossier s'il n'existe pas
+                    if (!is_dir($dossier_upload)) {
+                        mkdir($dossier_upload, 0777, true);
                     }
                     
-                    // Déplacer le fichier uploadé
-                    if (move_uploaded_file($images_upload['tmp_name'][$i], $chemin_complet)) {
-                        // Insérer l'image dans la base de données
-                        $sql_image = "INSERT INTO phase_images (id_phase, nom_image, chemin_image) 
-                                     VALUES (:id_phase, :nom_image, :chemin_image)";
-                        $stmt_image = $conn->prepare($sql_image);
-                        $stmt_image->bindParam(':id_phase', $id_phase);
-                        $stmt_image->bindParam(':nom_image', $images_upload['name'][$i]);
-                        $stmt_image->bindParam(':chemin_image', $chemin_complet);
-                        $stmt_image->execute();
+                    $files = $_FILES['images'];
+                    $file_count = count($files['name']);
+                    
+                    // Vérification du nombre de fichiers
+                    if ($file_count > $max_files) {
+                        throw new Exception("Vous ne pouvez uploader que $max_files images maximum. Vous avez sélectionné $file_count images.");
+                    }
+                    
+                    for ($i = 0; $i < $file_count; $i++) {
+                        // Vérifier s'il y a une erreur d'upload
+                        if ($files['error'][$i] !== UPLOAD_ERR_OK) {
+                            $error_message = "Erreur lors de l'upload de l'image " . ($i + 1) . ": ";
+                            switch ($files['error'][$i]) {
+                                case UPLOAD_ERR_INI_SIZE:
+                                case UPLOAD_ERR_FORM_SIZE:
+                                    $error_message .= "Fichier trop volumineux";
+                                    break;
+                                case UPLOAD_ERR_PARTIAL:
+                                    $error_message .= "Upload partiel";
+                                    break;
+                                case UPLOAD_ERR_NO_FILE:
+                                    continue 2; // Passer au fichier suivant
+                                default:
+                                    $error_message .= "Erreur inconnue";
+                            }
+                            throw new Exception($error_message);
+                        }
                         
-                        $images_uploaded++;
+                        // Vérifier la taille du fichier (2MB max)
+                        if ($files['size'][$i] > 2 * 1024 * 1024) {
+                            throw new Exception("L'image " . ($i + 1) . " est trop volumineuse. Maximum 2MB autorisé.");
+                        }
+                        
+                        // Vérifier le type de fichier
+                        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                        $file_type = mime_content_type($files['tmp_name'][$i]);
+                        
+                        if (!in_array($file_type, $allowed_types)) {
+                            throw new Exception("Type de fichier non autorisé pour l'image " . ($i + 1) . ". Types acceptés: JPG, PNG, GIF, WEBP");
+                        }
+                        
+                        // Générer un nom unique
+                        $file_extension = pathinfo($files['name'][$i], PATHINFO_EXTENSION);
+                        $new_filename = uniqid('phase_', true) . '_' . ($i + 1) . '.' . $file_extension;
+                        $upload_path = $dossier_upload . $new_filename;
+                        
+                        // Déplacer le fichier
+                        if (move_uploaded_file($files['tmp_name'][$i], $upload_path)) {
+                            // CORRECTION: Chemin pour la base de données (relatif)
+                            $chemin_bd = 'photos/phases/' . $new_filename;
+                            
+                            // Insérer dans la base de données
+                            $sql_image = "INSERT INTO phase_images (id_phase, nom_image, chemin_image) 
+                                        VALUES (:id_phase, :nom_image, :chemin_image)";
+                            $stmt_image = $conn->prepare($sql_image);
+                            $stmt_image->bindParam(':id_phase', $id_phase);
+                            $stmt_image->bindParam(':nom_image', $files['name'][$i]);
+                            $stmt_image->bindParam(':chemin_image', $chemin_bd);
+                            
+                            if ($stmt_image->execute()) {
+                                $images_uploaded++;
+                            } else {
+                                // Supprimer le fichier si l'insertion échoue
+                                unlink($upload_path);
+                                throw new Exception("Erreur lors de l'enregistrement de l'image " . ($i + 1) . " dans la base de données");
+                            }
+                        } else {
+                            throw new Exception("Erreur lors du déplacement de l'image " . ($i + 1));
+                        }
                     }
                 }
+                
+                $conn->commit();
+                
+                $message = "Phase ajoutée avec succès!";
+                if ($images_uploaded > 0) {
+                    $message .= " $images_uploaded image(s) uploadée(s).";
+                }
+                $_SESSION['success_message'] = $message;
+                
+            } catch(PDOException $e) {
+                $conn->rollBack();
+                $_SESSION['error_message'] = "Erreur base de données: " . $e->getMessage();
+            } catch(Exception $e) {
+                $conn->rollBack();
+                $_SESSION['error_message'] = $e->getMessage();
             }
-        }
-        
-        $conn->commit();
-        $_SESSION['success_message'] = "Phase ajoutée avec succès!" . 
-                                     (isset($images_uploaded) ? " $images_uploaded image(s) uploadée(s)." : "");
-        
-    } catch(PDOException $e) {
-        $conn->rollBack();
-        $_SESSION['error_message'] = "Erreur base de données: " . $e->getMessage();
-    } catch(Exception $e) {
-        $conn->rollBack();
-        $_SESSION['error_message'] = "Erreur: " . $e->getMessage();
-    }
-    
-    // Rediriger pour éviter la resoumission du formulaire
-    header("Location: update.php?id=" . $id_projet);
-    exit;
-}
-
-// Traitement du formulaire de mise à jour
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
-    $nouveau_statut = $_POST['statut'];
-    $nouvel_avancement = $_POST['avancement'];
-    $aujourdhui = date('Y-m-d');
-    
-    $erreurs = [];
-    
-    // Règles de validation selon tes spécifications
-    if ($projet['statut'] == 'À venir' && $nouveau_statut == 'En cours') {
-        // Vérifier que la date actuelle >= date début
-        if ($aujourdhui < $projet['date_debut']) {
-            $erreurs[] = "Impossible de passer à 'En cours': la date de début n'est pas encore arrivée";
-        }
-    }
-    
-    if ($projet['statut'] == 'En cours' && $nouveau_statut == 'Terminé') {
-        // Forcer l'avancement à 100%
-        $nouvel_avancement = 100;
-    }
-    
-    // Empêcher les transitions interdites
-    $transitions_interdites = [
-        'Terminé' => ['À venir', 'En cours'],
-        'En cours' => ['À venir'],
-        'En retard' => ['À venir', 'En cours']
-    ];
-    
-    if (isset($transitions_interdites[$projet['statut']]) && 
-        in_array($nouveau_statut, $transitions_interdites[$projet['statut']])) {
-        $erreurs[] = "Transition interdite: impossible de passer de '{$projet['statut']}' à '$nouveau_statut'";
-    }
-    
-    // Vérifier la cohérence avancement/statut
-    if ($nouveau_statut == 'Terminé' && $nouvel_avancement != 100) {
-        $erreurs[] = "Un projet terminé doit avoir un avancement de 100%";
-    }
-    
-    if ($nouveau_statut != 'Terminé' && $nouvel_avancement == 100) {
-        $erreurs[] = "L'avancement ne peut être à 100% que pour un projet terminé";
-    }
-    
-    // Si pas d'erreurs, mettre à jour
-    if (empty($erreurs)) {
-        try {
-            $sql = "UPDATE projet SET statut = :statut, avancement = :avancement WHERE id_projet = :id_projet";
-            $stmt = $conn->prepare($sql);
-            $stmt->bindParam(':statut', $nouveau_statut);
-            $stmt->bindParam(':avancement', $nouvel_avancement);
-            $stmt->bindParam(':id_projet', $id_projet);
             
-            if ($stmt->execute()) {
-                $_SESSION['success_message'] = "Projet mis à jour avec succès!";
-            } else {
-                $_SESSION['error_message'] = "Erreur lors de la mise à jour";
-            }
-        } catch(PDOException $e) {
-            $_SESSION['error_message'] = "Erreur: " . $e->getMessage();
+            // Rediriger pour éviter la resoumission du formulaire
+            header("Location: update.php?id=" . $id_projet);
+            exit;
+        }else {
+            $_SESSION['error_message'] = implode("<br>", $erreurs);
         }
-    } else {
-        $_SESSION['error_message'] = implode("<br>", $erreurs);
     }
-}
 
         // PAGINATION DES PHASES
         $phases_par_page = 1; // 1 phase par page comme demandé
@@ -319,8 +387,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
         .btn-close-custom:hover {
             opacity: 1;
         }
-        h3{
-            font-family: 'Times New Roman', Times, serif;
+          h3{
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -437,41 +507,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                            <a class="nav-link active" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
+                            <a class="nav-link" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des administrateurs
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
                             </a>
                         </li>
-                        <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>
@@ -518,11 +593,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                     <div>
                         <h3>Modifier le projet</h3>
                     </div>
-                    <div class="d-flex align-items-center">
-                        <span class="navbar-text" style="font-size : 20px;">
-                        <i class="bi bi-person-gear"></i> Espace administrateur
-                        </span>
-                    </div>
+                    <a href="liste_projet_admin.php" class="btn btn-outline-warning border rounded-2 ps-2 pe-2" typ="submit" style="background-color : white; height : 33px;"><i class="fas fa-arrow-left"></i> Retour à la liste</a>
                 </div>
                 <hr>
 
@@ -533,11 +604,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                         <div class="col-md-6">
                             <p><strong>Nom :</strong> <?php echo htmlspecialchars($projet['nom_projet']); ?></p>
                             <p><strong>Ministère :</strong> <?php echo htmlspecialchars($projet['ministere']); ?></p>
-                            <p><strong>Date début :</strong> <?php echo date('d/m/Y', strtotime($projet['date_debut'])); ?></p>
+                            <p><strong>Date début prévue :</strong> <?php echo date('d/m/Y', strtotime($projet['date_debut'])); ?></p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Localisation :</strong> <?php echo htmlspecialchars($projet['commune']); ?> - <?php echo htmlspecialchars($projet['quartier']); ?></p>
-                            <p><strong>Date fin :</strong> <?php echo date('d/m/Y', strtotime($projet['date_fin'])); ?></p>
+                            <p><strong>Date fin prévue :</strong> <?php echo date('d/m/Y', strtotime($projet['date_fin'])); ?></p>
                             <p><strong>Statut actuel :</strong> 
                                 <span class="badge 
                                     <?php 
@@ -567,8 +638,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                                         <option value="">Sélectionner un statut</option>
                                         <option value="À venir" <?php echo ($projet['statut'] == 'À venir') ? 'selected' : ''; ?>>À venir</option>
                                         <option value="En cours" <?php echo ($projet['statut'] == 'En cours') ? 'selected' : ''; ?>>En cours</option>
-                                        <option value="Terminé" <?php echo ($projet['statut'] == 'Terminé') ? 'selected' : ''; ?>>Terminé</option>
                                         <option value="En retard" <?php echo ($projet['statut'] == 'En retard') ? 'selected' : ''; ?>>En retard</option>
+                                        <option value="Terminé" <?php echo ($projet['statut'] == 'Terminé') ? 'selected' : ''; ?>>Terminé</option>
                                     </select>
                                     <small class="form-text text-muted" id="aide-statut"></small>
                                 </div>
@@ -617,9 +688,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                                         <label for="images" class="form-label">Images de la phase</label>
                                         <input class="form-control" name="images[]" type="file" accept="image/*" multiple>
                                         <small class="form-text text-muted">
-                                            Formats acceptés: JPG, PNG, GIF, WEBP. Maximum 3 images. 
+                                            Formats acceptés: JPG, PNG, GIF, WEBP. Maximum 2 images. 
                                             Taille max: 2MB par image.
                                         </small>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="montant" class="form-label">Montant</label>
+                                        <input class="form-control" name="montant_depense" type="number" required>
                                     </div>
                                 </div>
                                 
@@ -646,37 +721,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                             if (count($phases) > 0) {
                                 foreach ($phases as $phase) {
                                     echo '<div class="phase-item mb-4 p-3 border rounded">';
-                                    echo '<div class="d-flex justify-content-between align-items-start">';
-                                    echo '<div class="flex-grow-1">';
-                                    echo '<h6 class="text-primary">' . htmlspecialchars($phase['nom_phase']) . '</h6>';
-                                    echo '<p class="mb-2">' . nl2br(htmlspecialchars($phase['descript_phase'])) . '</p>';
-                                    echo '<small class="text-muted">Ajouté le: ' . date('d/m/Y H:i', strtotime($phase['date_mise_a_jour'])) . '</small>';
-                                    echo '</div>';
-                                    echo '<span class="badge bg-secondary ms-2">' . $phase['nb_images'] . ' image(s)</span>';
-                                    echo '</div>';
-                                    
-                                    // Afficher les images de la phase
-                                    $sql_images = "SELECT * FROM phase_images WHERE id_phase = :id_phase";
-                                    $stmt_images = $conn->prepare($sql_images);
-                                    $stmt_images->bindParam(':id_phase', $phase['id_phase']);
-                                    $stmt_images->execute();
-                                    $images = $stmt_images->fetchAll(PDO::FETCH_ASSOC);
-                                    
-                                    if (count($images) > 0) {
-                                        echo '<div class="mt-2">';
-                                        echo '<small class="text-muted">Images:</small>';
-                                        echo '<div class="d-flex flex-wrap gap-2 mt-1">';
-                                        foreach ($images as $image) {
-                                            // CORRECTION DU CHEMIN - utiliser le chemin relatif depuis votre arborescence
-                                            $chemin_affichage = str_replace('../', '', $image['chemin_image']);
-                                            echo '<a href="' . $chemin_affichage . '" target="_blank">';
-                                            echo '<img src="' . $chemin_affichage . '" class="img-thumbnail" style="width: 80px; height: 80px; object-fit: cover;" title="' . htmlspecialchars($image['nom_image']) . '" onerror="this.src=\'../photos/default/resto.jpg\'">';
-                                            echo '</a>';
-                                        }
+                                        echo '<div class="d-flex justify-content-between align-items-start">';
+                                            echo '<div class="flex-grow-1 mt-2">';
+                                                echo '<h6 class="text-primary">' . htmlspecialchars($phase['nom_phase']) . '</h6>';
+                                                echo '<p class="mb-2">' . nl2br(htmlspecialchars($phase['descript_phase'])) . '</p>';
+                                                echo '<small class="text-muted">Ajouté le: ' . date('d/m/Y H:i', strtotime($phase['date_mise_a_jour'])) . '</small>';
+                                            echo '</div>';
+                                            echo '<div class="d-flex">';
+                                                // Afficher les images de la phase
+                                                $sql_images = "SELECT * FROM phase_images WHERE id_phase = :id_phase";
+                                                $stmt_images = $conn->prepare($sql_images);
+                                                $stmt_images->bindParam(':id_phase', $phase['id_phase']);
+                                                $stmt_images->execute();
+                                                $images = $stmt_images->fetchAll(PDO::FETCH_ASSOC);
+                                                
+                                                if (count($images) > 0) {
+                                                    echo '<div class="ms-3">';
+                                                    echo '<span class="badge bg-secondary mb-1 ms-2" style="height:24px;">' . $phase['nb_images'] . ' image(s)</span>';
+                                                    echo '<div class="d-flex flex-wrap gap-2 ">';
+                                                    foreach ($images as $image) {
+                                                        $chemin_affichage = '/sisag/photos/phases/' . basename($image['chemin_image']);
+                                                        echo '<a href="' . $chemin_affichage . '" target="_blank">';
+                                                        echo '<img src="' . $chemin_affichage . '" class="img-thumbnail" style="width: 180px; height: 100px; object-fit: cover;">';
+                                                        echo '</a>';
+                                                    }                                        
+                                                    echo '</div>';
+                                                    echo '</div>';
+                                                }
+                                               
+                                            echo '</div>';
                                         echo '</div>';
-                                        echo '</div>';
-                                    }
-                                    echo '</div>';
+                                    echo '</div>';                 
                                 }
                             } else {
                                 echo '<p class="text-muted text-center">Aucune phase enregistrée pour ce projet.</p>';
@@ -731,6 +806,67 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
     </div>
 
     <script>
+            // Fonction pour fermer les alertes
+            function closeAlert(button) {
+                const alert = button.closest('.alert');
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.remove();
+                }, 300);
+            }
+
+        // Auto-fermeture des alertes après 8 secondes
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                alert.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    alert.remove();
+                }, 300);
+            });
+        }, 8000);
+        // Validation côté client pour les images
+        document.querySelector('input[name="images[]"]').addEventListener('change', function(e) {
+            const files = e.target.files;
+            const maxFiles = 2;
+            const maxSize = 2 * 1024 * 1024; // 2MB
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            
+            // Vérifier le nombre de fichiers
+            if (files.length > maxFiles) {
+                alert(`Vous ne pouvez sélectionner que ${maxFiles} images maximum. Vous avez sélectionné ${files.length} images.`);
+                e.target.value = '';
+                return;
+            }
+            
+            // Vérifier chaque fichier
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                
+                // Vérifier la taille
+                if (file.size > maxSize) {
+                    alert(`L'image "${file.name}" est trop volumineuse. Maximum 2MB autorisé.`);
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Vérifier le type
+                if (!allowedTypes.includes(file.type)) {
+                    alert(`Le type de fichier "${file.name}" n'est pas autorisé. Formats acceptés: JPG, PNG, GIF, WEBP.`);
+                    e.target.value = '';
+                    return;
+                }
+            }
+            
+            // Afficher un message de confirmation
+            if (files.length > 0) {
+                const message = files.length === 1 ? '1 image sélectionnée' : `${files.length} images sélectionnées`;
+                console.log(message + ' - Validation OK');
+            }
+        });
+
         function gererChangementStatut() {
             const statutSelect = document.getElementById('statut');
             const avancementInput = document.getElementById('avancement');

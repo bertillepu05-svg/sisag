@@ -3,6 +3,20 @@ header('Content-Type: text/html; charset=utf-8');
 session_name('admin_session');
 session_start();
 
+// Connexion à la base de données
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "sisag";
+
+try {
+    $conn = new PDO("mysql:host=$servername;dbname=$dbname;charset=utf8", $username, $password);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch(PDOException $e) {
+    die("Erreur de connexion: " . $e->getMessage());
+}
+
+
 if (!isset($_SESSION['id_adm'])) {
     header("Location: login.php");
     exit;
@@ -10,6 +24,17 @@ if (!isset($_SESSION['id_adm'])) {
 $id_adm = $_SESSION['id_adm'];
 
 
+// afficher le nom
+
+try {
+    $sql = "SELECT nom_adm, prenom_adm FROM administrateur WHERE id_adm = :id_adm";
+    $stmt = $conn->prepare($sql);
+    $stmt->bindParam(':id_adm', $id_adm);
+    $stmt->execute();
+    $adm = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error_message = "Erreur lors de l'insertion: " . $e->getMessage();
+}
 
 ?>
 <!DOCTYPE html>
@@ -38,6 +63,12 @@ $id_adm = $_SESSION['id_adm'];
         body{
              background-color : #f8f9fa;
         }
+
+        .nom{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-style: italic;
+        }
+
         /* Styles pour les messages d'alerte personnalisés */
         .alert-custom {
             border: none;
@@ -91,8 +122,10 @@ $id_adm = $_SESSION['id_adm'];
         .btn-close-custom:hover {
             opacity: 1;
         }
-        h3{
-            font-family: 'Times New Roman', Times, serif;
+         h3{
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -148,41 +181,46 @@ $id_adm = $_SESSION['id_adm'];
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                            <a class="nav-link" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
+                            <a class="nav-link" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link active" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des admins
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
                             </a>
                         </li>
-                         <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>
@@ -244,12 +282,15 @@ $id_adm = $_SESSION['id_adm'];
                         <h3>Gestion des administrateurs</h3>
                     </div>
                     <div class="d-flex align-items-center">
-                        <span class="navbar-text" style="font-size : 20px;">
-                        <i class="bi bi-person-gear"></i> Espace administrateur
-                        </span>
-                        <button type="button" class="btn btn-sm btn-warning text-white ms-2" id="btnExporter">
-                            <i class="fas fa-download"></i> Exporter
-                        </button>
+                        <div class="icone">
+                            <i class="bi bi-person-gear"></i> 
+                        </div>
+                        <div class="nom ms-2">
+                            <?php if ($adm): ?>
+                                <?php echo $adm['nom_adm'] ?? 0; ?>
+                                <?php echo $adm['prenom_adm'] ?? 0; ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
                 <hr>
@@ -334,7 +375,7 @@ $id_adm = $_SESSION['id_adm'];
                                         
                                         echo "<td>
                                                 <div class='d-flex'>
-                                                    <a href='' class='btn btn-warning btn-sm'>
+                                                    <a href='modifier_adm.php?id=".$ligne['id_adm']."' class='btn btn-warning btn-sm'>
                                                         <i class='bi bi-pencil-square'></i> Modifier
                                                     </a>
                                                     <a href='' 

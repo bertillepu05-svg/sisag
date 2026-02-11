@@ -273,9 +273,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
     </style>
 </head>
 <body>
-     <div class="container-fluid">
+    <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
+           <!-- Sidebar -->
             <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
                 <div class="d-flex p-3 icone">
                     <i class="fas fa-chart-line me-2"></i>SISAG
@@ -283,41 +283,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                            <a class="nav-link" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
+                            <a class="nav-link active" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des administrateurs
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
                             </a>
                         </li>
-                        <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>

@@ -3,10 +3,17 @@ header('Content-Type: text/html; charset=utf-8');
 session_name('admin_session');
 session_start();
 
+// Déterminer l'onglet actif
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'pending';
+
+
 if (!isset($_SESSION['id_adm'])) {
     header("Location: login.php");
     exit;
 }
+$id_adm = $_SESSION['id_adm'];
+
+
 
 // Connexion à la base de données
 $servername = "localhost";
@@ -54,60 +61,183 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action'])) {
     exit;
 }
 
-// Récupérer les commentaires par statut
+// Paramètres de pagination PAR ONGLET
+$comments_per_page = 6;
+
+
+// Réinitialiser les paramètres de page en fonction de l'onglet actif
+$current_page_pending = 1;
+$current_page_approved = 1;
+$current_page_rejected = 1;
+
+// Charger la page correcte pour chaque onglet
+switch ($active_tab) {
+    case 'pending':
+        $current_page_pending = isset($_GET['page_pending']) ? max(1, intval($_GET['page_pending'])) : 1;
+        break;
+    case 'approved':
+        $current_page_approved = isset($_GET['page_approved']) ? max(1, intval($_GET['page_approved'])) : 1;
+        break;
+    case 'rejected':
+        $current_page_rejected = isset($_GET['page_rejected']) ? max(1, intval($_GET['page_rejected'])) : 1;
+        break;
+}
+
+// Calculer les offsets pour chaque onglet
+$offset_pending = ($current_page_pending - 1) * $comments_per_page;
+$offset_approved = ($current_page_approved - 1) * $comments_per_page;
+$offset_rejected = ($current_page_rejected - 1) * $comments_per_page;
+
+
+
 try {
+
     // Commentaires en attente
-    $sql_pending = "SELECT c.*, p.nom_projet, p.commune 
-                   FROM commentaire c 
-                   JOIN projet p ON c.id_projet = p.id_projet 
-                   WHERE c.statut = 'en_attente' 
-                   ORDER BY c.date_commentaire DESC";
+    $sql_pending = "SELECT c.*, ci.prenom, ci.nom, ci.sexe, ci.profession, p.*
+                    FROM commentaire c
+                    INNER JOIN projet p ON c.id_projet = p.id_projet
+                    INNER JOIN citoyen ci ON c.id_citoyen = ci.id_citoyen
+                    WHERE c.statut = 'en_attente'
+                    ORDER BY c.date_commentaire DESC
+                    LIMIT :limit OFFSET :offset";
+
     $stmt_pending = $conn->prepare($sql_pending);
+    $stmt_pending->bindValue(':limit', $comments_per_page, PDO::PARAM_INT);
+    $stmt_pending->bindValue(':offset', $offset_pending, PDO::PARAM_INT);
     $stmt_pending->execute();
     $commentaires_attente = $stmt_pending->fetchAll(PDO::FETCH_ASSOC);
-    
+
     // Commentaires approuvés
-    $sql_approved = "SELECT c.*, p.nom_projet, p.commune 
-                    FROM commentaire c 
-                    JOIN projet p ON c.id_projet = p.id_projet 
-                    WHERE c.statut = 'approuve' 
-                    ORDER BY c.date_commentaire DESC 
-                    LIMIT 50";
+    $sql_approved = "SELECT c.*, ci.prenom, ci.nom, ci.sexe, ci.profession, p.*
+                    FROM commentaire c
+                    INNER JOIN projet p ON c.id_projet = p.id_projet
+                    INNER JOIN citoyen ci ON c.id_citoyen = ci.id_citoyen
+                    WHERE c.statut = 'approuve'
+                    ORDER BY c.date_commentaire DESC
+                    LIMIT :limit OFFSET :offset";
+
     $stmt_approved = $conn->prepare($sql_approved);
+    $stmt_approved->bindValue(':limit', $comments_per_page, PDO::PARAM_INT);
+    $stmt_approved->bindValue(':offset', $offset_approved, PDO::PARAM_INT);
     $stmt_approved->execute();
     $commentaires_approuves = $stmt_approved->fetchAll(PDO::FETCH_ASSOC);
-    
+
     // Commentaires rejetés
-    $sql_rejected = "SELECT c.*, p.nom_projet, p.commune 
-                    FROM commentaire c 
-                    JOIN projet p ON c.id_projet = p.id_projet 
-                    WHERE c.statut = 'rejete' 
-                    ORDER BY c.date_commentaire DESC 
-                    LIMIT 50";
+    $sql_rejected = "SELECT c.*, ci.prenom, ci.nom, ci.sexe, ci.profession, p.nom_projet, p.commune
+                    FROM commentaire c
+                    INNER JOIN projet p ON c.id_projet = p.id_projet
+                    INNER JOIN citoyen ci ON c.id_citoyen = ci.id_citoyen
+                    WHERE c.statut = 'rejete'
+                    ORDER BY c.date_commentaire DESC
+                    LIMIT :limit OFFSET :offset";
+
     $stmt_rejected = $conn->prepare($sql_rejected);
+    $stmt_rejected->bindValue(':limit', $comments_per_page, PDO::PARAM_INT);
+    $stmt_rejected->bindValue(':offset', $offset_rejected, PDO::PARAM_INT);
     $stmt_rejected->execute();
     $commentaires_rejetes = $stmt_rejected->fetchAll(PDO::FETCH_ASSOC);
-    
+
+    // Total commentaires approuvés pour la pagination
+    $sql_approved_total = "SELECT COUNT(*) as total FROM commentaire WHERE statut = 'approuve'";
+    $stmt_approved_total = $conn->prepare($sql_approved_total);
+    $stmt_approved_total->execute();
+    $total_approved = $stmt_approved_total->fetch(PDO::FETCH_ASSOC)['total'];
+    $total_pages_approved = ceil($total_approved / $comments_per_page);
+
+    // Total commentaires en attente pour la pagination
+    $sql_pending_total = "SELECT COUNT(*) as total FROM commentaire WHERE statut = 'en_attente'";
+    $stmt_pending_total = $conn->prepare($sql_pending_total);
+    $stmt_pending_total->execute();
+    $total_pending = $stmt_pending_total->fetch(PDO::FETCH_ASSOC)['total'];
+    $total_pages_pending = ceil($total_pending / $comments_per_page);
+
+
+    // Total commentaires rejetés pour la pagination
+    $sql_rejected_total = "SELECT COUNT(*) as total FROM commentaire WHERE statut = 'rejete'";
+    $stmt_rejected_total = $conn->prepare($sql_rejected_total);
+    $stmt_rejected_total->execute();
+    $total_rejected = $stmt_rejected_total->fetch(PDO::FETCH_ASSOC)['total'];
+    $total_pages_rejected = ceil($total_rejected / $comments_per_page);
+
 } catch(PDOException $e) {
     $commentaires_attente = [];
     $commentaires_approuves = [];
     $commentaires_rejetes = [];
+    $total_pages_pending = 1;
+    $total_pages_approved = 1;
+    $total_pages_rejected = 1;
 }
 
 // Récupérer les statistiques
 try {
-    $sql_stats = "SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN statut = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
-        SUM(CASE WHEN statut = 'approuve' THEN 1 ELSE 0 END) as approuves,
-        SUM(CASE WHEN statut = 'rejete' THEN 1 ELSE 0 END) as rejetes
-        FROM commentaire";
-    $stmt_stats = $conn->prepare($sql_stats);
-    $stmt_stats->execute();
-    $stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
+$sql_stats = "SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN statut = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
+    SUM(CASE WHEN statut = 'approuve' THEN 1 ELSE 0 END) as approuves,
+    SUM(CASE WHEN statut = 'rejete' THEN 1 ELSE 0 END) as rejetes
+    FROM commentaire";
+$stmt_stats = $conn->prepare($sql_stats);
+$stmt_stats->execute();
+$stats = $stmt_stats->fetch(PDO::FETCH_ASSOC);
 } catch(PDOException $e) {
-    $stats = ['total' => 0, 'en_attente' => 0, 'approuves' => 0, 'rejetes' => 0];
+$stats = ['total' => 0, 'en_attente' => 0, 'approuves' => 0, 'rejetes' => 0];
 }
+
+
+// Fonction pour générer les liens de pagination par onglet
+function genererPagination($page_courante, $total_pages, $statut) {
+    $params = $_GET;
+    $html = '';
+    
+    // Nettoyer tous les paramètres de pagination existants
+    unset($params['page_pending']);
+    unset($params['page_approved']);
+    unset($params['page_rejected']);
+    
+    // Définir le bon paramètre de pagination pour cet onglet
+    $page_param_name = 'page_' . $statut;
+    
+    if ($total_pages > 1) {
+        $html .= '<nav aria-label="Pagination commentaires ' . $statut . '">';
+        $html .= '<ul class="pagination justify-content-center">';
+        
+        // Bouton Précédent
+        if ($page_courante > 1) {
+            $params[$page_param_name] = $page_courante - 1;
+            $params['tab'] = $statut; // Forcer l'onglet correspondant
+            $html .= '<li class="page-item">';
+            $html .= '<a class="page-link" href="?' . http_build_query($params) . '" aria-label="Précédent">';
+            $html .= '<span aria-hidden="true">&laquo;</span>';
+            $html .= '</a></li>';
+        }
+        
+        // Pages
+        for ($i = 1; $i <= $total_pages; $i++) {
+            $params[$page_param_name] = $i;
+            $params['tab'] = $statut; // Forcer l'onglet correspondant
+            $active = ($i == $page_courante) ? 'active' : '';
+            $html .= '<li class="page-item ' . $active . '">';
+            $html .= '<a class="page-link" href="?' . http_build_query($params) . '">' . $i . '</a>';
+            $html .= '</li>';
+        }
+        
+        // Bouton Suivant
+        if ($page_courante < $total_pages) {
+            $params[$page_param_name] = $page_courante + 1;
+            $params['tab'] = $statut; // Forcer l'onglet correspondant
+            $html .= '<li class="page-item">';
+            $html .= '<a class="page-link" href="?' . http_build_query($params) . '" aria-label="Suivant">';
+            $html .= '<span aria-hidden="true">&raquo;</span>';
+            $html .= '</a></li>';
+        }
+        
+        $html .= '</ul></nav>';
+    }
+    
+    return $html;
+}
+
+
 ?>
 
 
@@ -137,8 +267,10 @@ try {
         body{
              background-color : #f8f9fa;
         }
-        h3{
-            font-family: 'Times New Roman', Times, serif;
+         h3{
+            font-family: sans-serif;
+            font-size : 20px;
+            font-weight: bold;
         }
         .sidebar .icone{
             font-weight:bold;
@@ -220,54 +352,66 @@ try {
             justify-content: center;
             font-weight: bold;
         }
+        .pagination .page-link {
+            color: #495057;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white">
+            <div class="col-lg-2 col-md-3 p-0 sidebar bg-dark text-white ">
                 <div class="d-flex p-3 icone">
                     <i class="fas fa-chart-line me-2"></i>SISAG
                 </div>
                 <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
-                            <a class="nav-link" href="dashboard_admin.php" data-page="dashboard">
+                            <a class="nav-link" href="dashboard_admin.php">
                                 <i class="fas fa-tachometer-alt"></i> Tableau de bord
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="liste_projet_admin.php" data-page="projects">
+                            <a class="nav-link" href="liste_projet_admin.php">
                                 <i class="fas fa-list"></i> Liste des projets
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="ajouter_projet.php" data-page="projects">
+                            <a class="nav-link" href="ajouter_projet.php">
                                 <i class="fas fa-plus-circle"></i> Ajouter un projet
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_critique.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets critiques
+                            <a class="nav-link" href="projet_critique.php">
+                                <i class="fas fa-exclamation-triangle"></i> Projets critiques
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="projet_avenir.php" data-page="projects">
-                                <i class="fas fa-list"></i> Projets à venir
+                            <a class="nav-link" href="projet_avenir.php">
+                                <i class="fas fa-clock"></i> Projets à venir
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="gestion_adm.php" data-page="projects">
-                                <i class="fas fa-list"></i> Gestion des administrateurs
+                            <a class="nav-link" href="gestion_adm.php">
+                                <i class="fas fa-users-cog"></i> Gestion des admins
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link active" href="commentaire.php" data-page="projects">
-                                <i class="fas fa-list"></i> Commentaires
+                            <a class="nav-link" href="gestion_citoyen.php">
+                                <i class="fas fa-users-cog"></i> Gestion des citoyens
                             </a>
                         </li>
-                        <li class="nav-item admin-only">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="commentaire.php">
+                                <i class="fas fa-comments"></i> Commentaires
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="deconnexion_admin.php">
                                 <i class="fas fa-sign-out-alt"></i> Déconnexion
                             </a>
@@ -279,9 +423,9 @@ try {
             <div class="col-lg-10 col-md-9 p-4">
                 <!-- en tête -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="mb-0">
+                    <h3 class="mb-0">
                         <i class="fas fa-comments me-2"></i>Modération des commentaires
-                    </h2>
+                    </h3>
                     <div class="text-muted">
                         <small>Dernière mise à jour: <?php echo date('H:i'); ?></small>
                     </div>
@@ -336,24 +480,24 @@ try {
                 <!-- Onglets -->
                 <ul class="nav nav-tabs mb-4" id="commentTabs" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-statut="en_attente" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab">
+                        <button class="nav-link <?php echo $active_tab === 'pending' ? 'active' : ''; ?>" data-statut="en_attente" id="pending-tab" data-bs-toggle="tab" data-bs-target="#pending" type="button" role="tab">
                             <i class="fas fa-clock me-1"></i>
                             En attente
-                            <span class="badge bg-warning ms-1"><?php echo count($commentaires_attente); ?></span>
+                            <span class="badge bg-warning ms-1"><?php echo $total_pending; ?></span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-statut="approuve" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab">
+                    <button class="nav-link <?php echo $active_tab === 'approved' ? 'active' : ''; ?>" data-statut="approuve" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button" role="tab">
                             <i class="fas fa-check-circle me-1"></i>
                             Approuvés
-                            <span class="badge bg-success ms-1"><?php echo count($commentaires_approuves); ?></span>
+                            <span class="badge bg-success ms-1"><?php echo $total_approved; ?></span>
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-statut="rejete" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab">
+                        <button class="nav-link <?php echo $active_tab === 'rejected' ? 'active' : ''; ?>" data-statut="rejete" id="rejected-tab" data-bs-toggle="tab" data-bs-target="#rejected" type="button" role="tab">
                             <i class="fas fa-times-circle me-1"></i>
                             Rejetés
-                            <span class="badge bg-danger ms-1"><?php echo count($commentaires_rejetes); ?></span>
+                            <span class="badge bg-danger ms-1"><?php echo $total_rejected; ?></span>
                         </button>
                     </li>
                 </ul>
@@ -408,7 +552,13 @@ try {
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
-                            </div>
+                            </div>                            
+                            <!-- Pagination pour les commentaires en attente -->
+                            <?php
+                                $pagination_pending = genererPagination($current_page_pending, $total_pages_pending, 'pending');
+                                echo $pagination_pending;
+                            ?>
+
                         <?php else: ?>
                             <div class="text-center py-5">
                                 <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
@@ -463,6 +613,13 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+                            
+                            <!-- Pagination pour les commentaires approuvés -->
+                            <?php
+                                $pagination_approved = genererPagination($current_page_approved, $total_pages_approved, 'approved');
+                                echo $pagination_approved;
+                            ?>
+ 
                         <?php else: ?>
                             <div class="text-center py-5">
                                 <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
@@ -516,6 +673,13 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+                            
+                            <!-- Pagination pour les commentaires rejetés -->
+                            <?php
+                                $pagination_rejected = genererPagination($current_page_rejected, $total_pages_rejected, 'rejected');
+                                echo $pagination_rejected;
+                            ?>
+
                         <?php else: ?>
                             <div class="text-center py-5">
                                 <i class="fas fa-ban fa-3x text-muted mb-3"></i>
@@ -532,21 +696,59 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Mettre à jour le titre de l'onglet actif
+        // Sauvegarder l'onglet actif et restaurer au rechargement
         document.addEventListener('DOMContentLoaded', function() {
+            const activeTab = localStorage.getItem('activeCommentTab');
+            if (activeTab) {
+                const tab = document.querySelector(`[data-bs-target="${activeTab}"]`);
+                if (tab) {
+                    new bootstrap.Tab(tab).show();
+                }
+            }
+            
+            // Sauvegarder l'onglet actif quand on change
             const tabs = document.querySelectorAll('#commentTabs .nav-link');
             tabs.forEach(tab => {
-                tab.addEventListener('shown.bs.tab', function (e) {
-                    const activeTab = e.target.getAttribute('data-statut');
-                    console.log('Onglet actif:', activeTab);
+                tab.addEventListener('shown.bs.tab', function(e) {
+                    const target = e.target.getAttribute('data-bs-target');
+                    localStorage.setItem('activeCommentTab', target);
                 });
             });
+            
+            // Mettre à jour les URLs des paginations pour garder l'onglet actif
+            function updatePaginationLinks() {
+                const activeTab = document.querySelector('#commentTabs .nav-link.active');
+                const tabTarget = activeTab ? activeTab.getAttribute('data-bs-target') : '#pending';
+                
+                document.querySelectorAll('.pagination .page-link').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && href.includes('?')) {
+                        // Supprimer les anciens paramètres d'onglet
+                        let url = new URL(href, window.location.origin);
+                        url.searchParams.delete('tab');
+                        
+                        // Ajouter le paramètre d'onglet actif
+                        if (tabTarget === '#approved') {
+                            url.searchParams.set('tab', 'approved');
+                        } else if (tabTarget === '#rejected') {
+                            url.searchParams.set('tab', 'rejected');
+                        } else {
+                            url.searchParams.set('tab', 'pending');
+                        }
+                        
+                        link.setAttribute('href', url.search);
+                    }
+                });
+            }
+            
+            // Mettre à jour les liens quand on change d'onglet
+            tabs.forEach(tab => {
+                tab.addEventListener('shown.bs.tab', updatePaginationLinks);
+            });
+            
+            // Initialiseri
+            updatePaginationLinks();
         });
     </script>
 </body>
 </html>
-
-
-
-
-
