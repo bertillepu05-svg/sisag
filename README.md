@@ -144,22 +144,27 @@ Critères :
 ![Mobile view](images/mobile.PNG)
 
 ---
-## Architecture du projet
-sisag/ 
-│── 📁 admin/               # Interface d'administration
-│     ├── ajouter_projet.php       # Formulaire d'ajout de projets
-│     ├── update.php               # Mise à jour des projets
-│     ├── dashboard_admin.php            # Tableau de bord général
-│     ├── liste_projet_admin.php   # Liste
-│     └── ...                      # Autres pages admin
-│
-│── 📁 citoyen/             # Interface publique (citoyens)
-│     ├── dashboard.php        
-│     ├── liste_projet.php     
-│     └── ...                      # Autres pages publiques
-│
-│── 🖼 photos/              # Images utilisées dans l'application
-│     └── (assets du projet)
-│          
-│── images/                 #captures de l'application 
-│── 📘 README.md            # Documentation du projet
+
+### *Projets suivis*
+
+Cette interface permet aux utilisateurs authentifiés d’accéder aux projets qu’ils ont sélectionnés pour suivi.  
+Elle assure la consultation structurée des informations relatives à l’évolution, au statut et aux différentes mises à jour des projets.
+
+![Mobile view](images/projets_suivis.PNG)
+
+---
+
+### *Module de gestion des citoyens*
+
+Ce module constitue une interface administrative dédiée à la gestion des citoyens enregistrés dans le système.  
+Il permet :
+
+- La consultation des données personnelles enregistrées
+- Le suivi des connexions et de l’activité des utilisateurs
+- La mise à jour et la modification des informations si nécessaire
+- La supervision globale des comptes utilisateurs
+
+  ![Mobile view](images/gest_citoyen.PNG)
+
+
+
