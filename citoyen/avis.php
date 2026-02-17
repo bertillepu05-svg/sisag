@@ -425,6 +425,7 @@ try {
 
 
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -621,6 +622,7 @@ try {
             });
         }, 8000);
    </script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>
 <?php

@@ -360,6 +360,7 @@ function genererPagination($page_courante, $total_pages, $statut) {
             border-color: #0d6efd;
         }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -750,5 +751,6 @@ function genererPagination($page_courante, $total_pages, $statut) {
             updatePaginationLinks();
         });
     </script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>

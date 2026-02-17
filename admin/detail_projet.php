@@ -335,6 +335,7 @@ try {
             font-weight: bold;
         }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -718,5 +719,6 @@ try {
         </div>
     </div>
    
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>

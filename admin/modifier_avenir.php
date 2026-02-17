@@ -274,6 +274,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
         }
 
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
      <div class="container-fluid">
@@ -450,5 +451,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['modifier'])) {
    
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>

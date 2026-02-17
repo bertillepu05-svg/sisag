@@ -1,11 +1,12 @@
-<?php
+﻿<?php
 header('Content-Type: text/html; charset=utf-8');
 
 //inclure le fichier de verification 
 require_once 'check_session.php';
 
+$id_citoyen = $_SESSION['id_citoyen'] ?? null;
 
-// Connexion à la base de données
+// Connexion Ã  la base de donnÃ©es
 $conn = new mysqli("localhost", "root", "", "sisag");
 if($conn->connect_error){
     die("erreur".$conn->connect_error);
@@ -14,20 +15,20 @@ $conn->set_charset("utf8mb4");
 
 $aujourdhui = date('Y-m-d');
 
-// Statistiques générales
+// Statistiques gÃ©nÃ©rales
 $stats = [];
 $sql_stats = "SELECT 
     COUNT(*) as total,
     SUM(CASE WHEN statut = 'En cours' THEN 1 ELSE 0 END) as en_cours,
-    SUM(CASE WHEN statut = 'Terminé' THEN 1 ELSE 0 END) as termines,
+    SUM(CASE WHEN statut = 'TerminÃ©' THEN 1 ELSE 0 END) as termines,
     SUM(CASE WHEN statut = 'En retard' THEN 1 ELSE 0 END) as retard,
-    SUM(CASE WHEN statut = 'À venir' THEN 1 ELSE 0 END) as a_venir
+    SUM(CASE WHEN statut = 'Ã€ venir' THEN 1 ELSE 0 END) as a_venir
 FROM projet";
 
 $result_stats = $conn->query($sql_stats);
 $stats = $result_stats->fetch_assoc();
 
-// Top 3 projets les plus avancés (statut "En cours" avec avancement élevé et date fin > aujourd'hui)
+// Top 3 projets les plus avancÃ©s (statut "En cours" avec avancement Ã©levÃ© et date fin > aujourd'hui)
 $sql_top_avances = "SELECT id_projet, nom_projet, avancement, date_fin, photo 
                    FROM projet 
                    WHERE statut = 'En cours' 
@@ -53,8 +54,8 @@ while($row = $result_top_critiques->fetch_assoc()) {
     $top_critiques[] = $row;
 }
 
-// Données pour le graphique par région 
-$sql_regions = "SELECT commune, COUNT(*) as count FROM projet GROUP BY commune";
+// DonnÃ©es pour le graphique par rÃ©gion 
+$sql_regions = "SELECT commune, COUNT(*) as count FROM projet WHERE commune IS NOT NULL AND commune != '' GROUP BY commune";
 $result_regions = $conn->query($sql_regions);
 $regions_labels = [];
 $regions_counts = [];
@@ -63,7 +64,7 @@ while($row = $result_regions->fetch_assoc()) {
     $regions_counts[] = $row['count'];
 }
 
-// Données pour le graphique par statut   
+// DonnÃ©es pour le graphique par statut   
 $sql_statuts = "SELECT statut, COUNT(*) as count FROM projet GROUP BY statut";
 $result_statuts = $conn->query($sql_statuts);
 $statuts_labels = [];
@@ -73,13 +74,30 @@ while($row = $result_statuts->fetch_assoc()) {
     $statuts_counts[] = $row['count'];
 }
 
-// Récupérer les infos 
-$sql = "SELECT * FROM citoyen WHERE id_citoyen = ?"; 
-$stmt = $conn->prepare($sql); 
-$stmt->bind_param("i", $id_citoyen); 
-$stmt->execute(); $result = $stmt->get_result(); 
-$citoyen = $result->fetch_assoc(); 
+$regions_labels_json = json_encode($regions_labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($regions_labels_json === false) { $regions_labels_json = '[]'; }
 
+$regions_counts_json = json_encode($regions_counts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($regions_counts_json === false) { $regions_counts_json = '[]'; }
+
+$statuts_labels_json = json_encode($statuts_labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($statuts_labels_json === false) { $statuts_labels_json = '[]'; }
+
+$statuts_counts_json = json_encode($statuts_counts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($statuts_counts_json === false) { $statuts_counts_json = '[]'; }
+
+// Récupérer les infos du citoyen connecté
+$citoyen = null;
+if ($id_citoyen !== null) {
+    $sql = "SELECT * FROM citoyen WHERE id_citoyen = ?";
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param("i", $id_citoyen);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $citoyen = $result->fetch_assoc();
+    }
+}
 
 $conn->close();
 ?>
@@ -119,7 +137,7 @@ $conn->close();
             font-size : 20px;
             font-weight: bold;
         }
-        /* Styles pour les messages d'alerte personnalisés */
+        /* Styles pour les messages d'alerte personnalisÃ©s */
         .alert-custom {
             border: none;
             border-radius: 12px;
@@ -261,7 +279,19 @@ $conn->close();
         .position-fixed {
             z-index: 9999;
         }
+
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 260px;
+            }
+        }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -313,7 +343,7 @@ $conn->close();
             </div>
             <!-- Contenu droit -->
             <div class="col-lg-10 col-md-9 p-4">
-                <!-- En tête -->
+                <!-- En tÃªte -->
                 <div class="d-flex justify-content-between">
                     <div>
                         <h3>Tableau de bord</h3>
@@ -370,7 +400,7 @@ $conn->close();
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
-                                            Projets terminés</div>
+                                            Projets terminÃ©s</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['termines'] ?? 0; ?></div>
                                     </div>
                                     <div class="col-auto">
@@ -402,7 +432,7 @@ $conn->close();
                                 <div class="row no-gutters align-items-center">
                                     <div class="col mr-2">
                                         <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
-                                            Projets à venir</div>
+                                            Projets Ã  venir</div>
                                         <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo $stats['a_venir'] ?? 0; ?></div>
                                     </div>
                                     <div class="col-auto">
@@ -423,7 +453,9 @@ $conn->close();
                                 Projets par commune
                             </div>
                             <div class="card-body">
-                                <canvas id="regionChart" width="100%" height="40"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="regionChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -434,7 +466,9 @@ $conn->close();
                                 Statut des projets
                             </div>
                             <div class="card-body">
-                                <canvas id="statusChart" width="100%" height="40"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="statusChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -446,7 +480,7 @@ $conn->close();
                         <div class="card mb-4">
                             <div class="card-header bg-success text-white">
                                 <i class="fas fa-trophy me-1"></i>
-                                Top 3 projets les plus avancés
+                                Top 3 projets les plus avancÃ©s
                             </div>
                             <div class="card-body">
                                 <?php if (!empty($top_avances)): ?>
@@ -477,7 +511,7 @@ $conn->close();
                                 <?php else: ?>
                                     <div class="text-center text-muted py-3">
                                         <i class="fas fa-info-circle fa-2x mb-2"></i><br>
-                                        Aucun projet en cours avec avancement élevé
+                                        Aucun projet en cours avec avancement Ã©levÃ©
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -537,7 +571,7 @@ $conn->close();
 
  
     <script>
-        // Attendre que la page soit complètement chargée
+        // Attendre que la page soit complÃ¨tement chargÃ©e
         document.addEventListener('DOMContentLoaded', function() {
             // Graphique des projets par commune
             const regionCtx = document.getElementById('regionChart');
@@ -545,10 +579,10 @@ $conn->close();
                 new Chart(regionCtx, {
                     type: 'bar',
                     data: {
-                        labels: <?php echo json_encode($regions_labels); ?>,
+                        labels: <?php echo $regions_labels_json; ?>,
                         datasets: [{
                             label: 'Nombre de projets',
-                            data: <?php echo json_encode($regions_counts); ?>,
+                            data: <?php echo $regions_counts_json; ?>,
                             backgroundColor: [
                                 '#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d', '#0dcaf0'
                             ],
@@ -576,14 +610,14 @@ $conn->close();
                 new Chart(statusCtx, {
                     type: 'pie',
                     data: {
-                        labels: <?php echo json_encode($statuts_labels); ?>,
+                        labels: <?php echo $statuts_labels_json; ?>,
                         datasets: [{
-                            data: <?php echo json_encode($statuts_counts); ?>,
+                            data: <?php echo $statuts_counts_json; ?>,
                             backgroundColor: [
                                 '#0d6efd', // En cours
-                                '#198754', // Terminé  
+                                '#198754', // TerminÃ©  
                                 '#dc3545', // En retard
-                                '#ffc107'  // À venir
+                                '#ffc107'  // Ã€ venir
                             ],
                             borderWidth: 2,
                             borderColor: '#fff'
@@ -605,7 +639,7 @@ $conn->close();
       async function exporterImage() {
             const btn = event.target.closest('.dropdown-item');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GÃ©nÃ©ration...';
             btn.disabled = true;
             
             try {
@@ -616,7 +650,7 @@ $conn->close();
                     logging: false
                 });
                 
-                // Créer le lien de téléchargement
+                // CrÃ©er le lien de tÃ©lÃ©chargement
                 const link = document.createElement('a');
                 link.download = 'dashboard_sisag_' + new Date().toISOString().split('T')[0] + '.png';
                 link.href = canvas.toDataURL('image/png');
@@ -624,10 +658,10 @@ $conn->close();
                 link.click();
                 document.body.removeChild(link);
                 
-                showCustomAlert(' Dashboard exporté en image!', 'success');
+                showCustomAlert(' Dashboard exportÃ© en image!', 'success');
             } catch (error) {
                 console.error('Erreur export:', error);
-                showCustomAlert(' Erreur lors de l\'export. Vérrez la console.', 'danger');
+                showCustomAlert(' Erreur lors de l\'export. VÃ©rrez la console.', 'danger');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -638,7 +672,7 @@ $conn->close();
     async function exporterPDF() {
         const btn = event.target.closest('.dropdown-item');
         const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Génération PDF...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GÃ©nÃ©ration PDF...';
         btn.disabled = true;
         
         try {
@@ -662,16 +696,16 @@ $conn->close();
             doc.addImage(imgData, 'JPEG', 10, 10, imgWidth, imgHeight);
             doc.save('dashboard_sisag_' + new Date().toISOString().split('T')[0] + '.pdf');
             
-            showCustomAlert(' Dashboard exporté en PDF!','success');
+            showCustomAlert(' Dashboard exportÃ© en PDF!','success');
         } catch (error) {
             console.error('Erreur export PDF:', error);
-            showCustomAlert(' Erreur export PDF. Vérrez la console.','danger');
+            showCustomAlert(' Erreur export PDF. VÃ©rrez la console.','danger');
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
-    // Fonction pour afficher les messages d'alerte personnalisés
+    // Fonction pour afficher les messages d'alerte personnalisÃ©s
     function showCustomAlert(message, type) {
         const alertClass = {
             'success': 'alert-success-custom',
@@ -686,7 +720,7 @@ $conn->close();
         }[type] || 'fas fa-info-circle';
 
         const alertTitle = {
-            'success': 'Succès',
+            'success': 'SuccÃ¨s',
             'danger': 'Erreur',
             'warning': 'Attention'
         }[type] || 'Information';
@@ -708,7 +742,7 @@ $conn->close();
 
         document.body.insertAdjacentHTML('beforeend', alertHtml);
 
-        // Auto-supprimer après 5 secondes
+        // Auto-supprimer aprÃ¨s 5 secondes
         setTimeout(() => {
             const alert = document.querySelector('.position-fixed.alert');
             if (alert) {
@@ -720,6 +754,7 @@ $conn->close();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>
 

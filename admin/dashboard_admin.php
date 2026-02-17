@@ -58,7 +58,7 @@ while($row = $result_top_critiques->fetch_assoc()) {
 }
 
 // Données pour le graphique par région 
-$sql_regions = "SELECT commune, COUNT(*) as count FROM projet GROUP BY commune";
+$sql_regions = "SELECT commune, COUNT(*) as count FROM projet WHERE commune IS NOT NULL AND commune != '' GROUP BY commune";
 $result_regions = $conn->query($sql_regions);
 $regions_labels = [];
 $regions_counts = [];
@@ -76,6 +76,18 @@ while($row = $result_statuts->fetch_assoc()) {
     $statuts_labels[] = $row['statut'];
     $statuts_counts[] = $row['count'];
 }
+
+$regions_labels_json = json_encode($regions_labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($regions_labels_json === false) { $regions_labels_json = '[]'; }
+
+$regions_counts_json = json_encode($regions_counts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($regions_counts_json === false) { $regions_counts_json = '[]'; }
+
+$statuts_labels_json = json_encode($statuts_labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($statuts_labels_json === false) { $statuts_labels_json = '[]'; }
+
+$statuts_counts_json = json_encode($statuts_counts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+if ($statuts_counts_json === false) { $statuts_counts_json = '[]'; }
 
 // afficher le nom 
 $sql = "SELECT nom_adm, prenom_adm FROM administrateur WHERE id_adm = ?"; 
@@ -259,7 +271,19 @@ $conn->close();
         .position-fixed {
             z-index: 9999;
         }
+
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 260px;
+            }
+        }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -432,7 +456,9 @@ $conn->close();
                                 Projets par commune
                             </div>
                             <div class="card-body">
-                                <canvas id="regionChart" width="100%" height="40"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="regionChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -443,7 +469,9 @@ $conn->close();
                                 Statut des projets
                             </div>
                             <div class="card-body">
-                                <canvas id="statusChart" width="100%" height="40"></canvas>
+                                <div class="chart-container">
+                                    <canvas id="statusChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -554,10 +582,10 @@ $conn->close();
                 new Chart(regionCtx, {
                     type: 'bar',
                     data: {
-                        labels: <?php echo json_encode($regions_labels); ?>,
+                        labels: <?php echo $regions_labels_json; ?>,
                         datasets: [{
                             label: 'Nombre de projets',
-                            data: <?php echo json_encode($regions_counts); ?>,
+                            data: <?php echo $regions_counts_json; ?>,
                             backgroundColor: [
                                 '#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d', '#0dcaf0'
                             ],
@@ -585,9 +613,9 @@ $conn->close();
                 new Chart(statusCtx, {
                     type: 'pie',
                     data: {
-                        labels: <?php echo json_encode($statuts_labels); ?>,
+                        labels: <?php echo $statuts_labels_json; ?>,
                         datasets: [{
-                            data: <?php echo json_encode($statuts_counts); ?>,
+                            data: <?php echo $statuts_counts_json; ?>,
                             backgroundColor: [
                                 '#0d6efd', // En cours
                                 '#198754', // Terminé  
@@ -729,6 +757,7 @@ $conn->close();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>
 

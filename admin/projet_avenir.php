@@ -177,6 +177,7 @@ $adm = $result->fetch_assoc();
             background: linear-gradient(135deg, #fff3cd, #ffeaa7);
         }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -431,6 +432,7 @@ $adm = $result->fetch_assoc();
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>
 <?php

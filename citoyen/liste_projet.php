@@ -341,7 +341,42 @@ $citoyen = $result->fetch_assoc();
         .photo:hover {
             transform: scale(1.05);
         }
+
+        .map-mobile-carousel {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .map-mobile-carousel .photo-mobile {
+            width: 100%;
+            height: 220px;
+            border-radius: 10px;
+            border-bottom: none;
+        }
+
+        .map-mobile-carousel .carousel-control-prev-icon,
+        .map-mobile-carousel .carousel-control-next-icon {
+            background-color: rgba(0, 0, 0, 0.45);
+            border-radius: 50%;
+        }
+
+        @media (max-width: 767.98px) {
+            .map-desktop-grid {
+                display: none;
+            }
+
+            .photo:hover {
+                transform: none;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .map-mobile-carousel {
+                display: none;
+            }
+        }
     </style>
+    <link rel="stylesheet" href="../shared/sidebar-drawer.css">
 </head>
 <body>
     <div class="container-fluid">
@@ -566,7 +601,7 @@ $citoyen = $result->fetch_assoc();
                         <div class="card-body">
                             <div class="map-container">
                                 <p class="text-muted">Carte interactive des communes de la province de Kinshasa</p>
-                                <div class="row ">
+                                <div class="row map-desktop-grid">
                                     <div class="col-4">
                                         <img src="../photos/projet/kinshasa-map.jpg" alt="" width="auto" class="photo">
                                     </div>
@@ -576,6 +611,32 @@ $citoyen = $result->fetch_assoc();
                                     <div class="col-4">
                                         <img src="../photos/projet/img2" alt="" width="auto" class="photo">
                                     </div>
+                                </div>
+                                <div id="carteRegionaleMobile" class="carousel slide map-mobile-carousel" data-bs-ride="carousel" data-bs-interval="3500">
+                                    <div class="carousel-indicators">
+                                        <button type="button" data-bs-target="#carteRegionaleMobile" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Image 1"></button>
+                                        <button type="button" data-bs-target="#carteRegionaleMobile" data-bs-slide-to="1" aria-label="Image 2"></button>
+                                        <button type="button" data-bs-target="#carteRegionaleMobile" data-bs-slide-to="2" aria-label="Image 3"></button>
+                                    </div>
+                                    <div class="carousel-inner">
+                                        <div class="carousel-item active">
+                                            <img src="../photos/projet/kinshasa-map.jpg" alt="" class="d-block photo photo-mobile">
+                                        </div>
+                                        <div class="carousel-item">
+                                            <img src="../photos/projet/carte-kinshasa.jpg" alt="" class="d-block photo photo-mobile">
+                                        </div>
+                                        <div class="carousel-item">
+                                            <img src="../photos/projet/img2" alt="" class="d-block photo photo-mobile">
+                                        </div>
+                                    </div>
+                                    <button class="carousel-control-prev" type="button" data-bs-target="#carteRegionaleMobile" data-bs-slide="prev">
+                                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Previous</span>
+                                    </button>
+                                    <button class="carousel-control-next" type="button" data-bs-target="#carteRegionaleMobile" data-bs-slide="next">
+                                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                        <span class="visually-hidden">Next</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1085,5 +1146,6 @@ function formatDate(dateString) {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
+    <script src="../shared/sidebar-drawer.js"></script>
 </body>
 </html>
